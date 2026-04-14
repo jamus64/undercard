@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UnderCard V2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <p class="eyebrow">Browser Prototype</p>
+      <h1>UnderCard</h1>
+      <p class="subtitle">A tiny wrestling card combat toy with pins, kickouts, and pinfall decks.</p>
+    </header>
+
+    <section class="game-shell">
+      <div class="toolbar">
+        <div>
+          <h2>V2 Pinfall Prototype</h2>
+          <p>Build damage, load up the pinfall deck, and try to finish the match with a three count.</p>
+        </div>
+        <button id="restart-button" type="button">Restart Match</button>
+      </div>
+
+      <div id="game"></div>
+
+      <section class="inspector-grid">
+        <section class="inspector-panel">
+          <div class="inspector-head">
+            <div>
+              <h3>Match Log</h3>
+              <p>Persistent play-by-play</p>
+            </div>
+          </div>
+
+          <div id="match-log" class="log-scroll">
+            <ol id="match-log-list"></ol>
+          </div>
+        </section>
+
+        <section class="inspector-panel">
+          <div class="inspector-head">
+            <div>
+              <h3>Pinfall Decks</h3>
+              <p>Top of deck shown first</p>
+            </div>
+          </div>
+
+          <div class="pinfall-grid">
+            <article class="pinfall-view">
+              <h4>Opponent Pinfall Deck</h4>
+              <p id="enemy-pinfall-summary" class="pinfall-summary"></p>
+              <div id="enemy-pinfall-cards" class="pinfall-card-list"></div>
+            </article>
+
+            <article class="pinfall-view">
+              <h4>Your Pinfall Deck</h4>
+              <p id="player-pinfall-summary" class="pinfall-summary"></p>
+              <div id="player-pinfall-cards" class="pinfall-card-list"></div>
+            </article>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
