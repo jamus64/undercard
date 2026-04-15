@@ -3,69 +3,157 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UnderCard V2</title>
+  <title>UnderCard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="page-shell">
     <header class="page-header">
-      <p class="eyebrow">Browser Prototype</p>
       <h1>UnderCard</h1>
-      <p class="subtitle">A tiny wrestling card combat toy with pins, kickouts, and pinfall decks.</p>
     </header>
 
     <section class="game-shell">
-      <div class="toolbar">
-        <div>
-          <h2>V2 Pinfall Prototype</h2>
-          <p>Build damage, load up the pinfall deck, and try to finish the match with a three count.</p>
-        </div>
-        <button id="restart-button" type="button">Restart Match</button>
+      <div id="startup-error" class="startup-error" hidden></div>
+
+      <div id="app-content" class="app-content">
+        <section class="turn-director">
+          <div class="turn-director__copy">
+            <p id="director-title" class="director-title"></p>
+            <p id="director-subtitle" class="director-subtitle"></p>
+          </div>
+          <div class="turn-director__actions">
+            <button id="director-primary" class="primary-button" type="button"></button>
+            <button id="restart-button" class="secondary-button" type="button">Reset Match</button>
+          </div>
+        </section>
+
+        <p id="outcome-banner" class="outcome-banner" hidden></p>
+
+        <section class="field-layout">
+          <div class="summary-column">
+            <article id="enemy-summary" class="wrestler-block" data-state="steady">
+              <div class="wrestler-block__header">
+                <h2 id="enemy-name" class="wrestler-block__name"></h2>
+                <span id="enemy-role" class="role-chip"></span>
+              </div>
+              <p id="enemy-stats" class="wrestler-block__stats"></p>
+              <p id="enemy-pin" class="wrestler-block__pin"></p>
+              <p id="enemy-status" class="wrestler-block__status"></p>
+            </article>
+
+            <article id="player-summary" class="wrestler-block" data-state="steady">
+              <div class="wrestler-block__header">
+                <h2 id="player-name" class="wrestler-block__name"></h2>
+                <span id="player-role" class="role-chip"></span>
+              </div>
+              <p id="player-stats" class="wrestler-block__stats"></p>
+              <p id="player-pin" class="wrestler-block__pin"></p>
+              <p id="player-status" class="wrestler-block__status"></p>
+            </article>
+          </div>
+
+          <div class="field-main">
+            <section class="inspector-panel sequence-panel">
+              <div class="panel-row">
+                <div class="panel-title">
+                  <h2>Sequence</h2>
+                </div>
+                <p id="sequence-combo" class="panel-meter"></p>
+              </div>
+              <div id="sequence-slots" class="sequence-slots"></div>
+            </section>
+
+            <section class="inspector-panel recent-panel">
+              <div class="panel-row">
+                <div class="panel-title">
+                  <h2>Recent Events</h2>
+                </div>
+              </div>
+              <div class="recent-body">
+                <ol id="recent-events-list" class="recent-list"></ol>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="bottom-dock">
+          <section class="inspector-panel hand-panel">
+            <div class="panel-row">
+              <div class="panel-title">
+                <h2>Your Hand</h2>
+                <div class="hand-filters" id="hand-filters">
+                  <button class="filter-chip is-active" type="button" data-filter="usable">Playable</button>
+                  <button class="filter-chip" type="button" data-filter="all">All</button>
+                  <button class="filter-chip" type="button" data-filter="offense">Offense</button>
+                  <button class="filter-chip" type="button" data-filter="defense">Defense</button>
+                  <button class="filter-chip" type="button" data-filter="pin">Pins</button>
+                </div>
+              </div>
+              <div class="hand-panel__controls">
+                <p id="draw-pile-count" class="panel-meter"></p>
+                <button id="full-log-button" class="secondary-button" type="button">Log</button>
+                <button id="end-turn-button" class="secondary-button" type="button">End Turn</button>
+              </div>
+            </div>
+
+            <div id="hand-cards" class="hand-grid"></div>
+          </section>
+
+          <section class="inspector-panel action-panel dock-action">
+            <div class="panel-row">
+              <div class="panel-title">
+                <h2>Current Action</h2>
+              </div>
+            </div>
+
+            <div class="action-body">
+              <p id="action-phase" class="action-phase"></p>
+              <p id="action-title" class="action-title"></p>
+              <p id="action-text" class="action-text"></p>
+              <p id="action-outcome" class="action-outcome"></p>
+              <div id="action-buttons" class="action-buttons"></div>
+            </div>
+          </section>
+        </section>
+
       </div>
-
-      <div id="game"></div>
-
-      <section class="inspector-grid">
-        <section class="inspector-panel">
-          <div class="inspector-head">
-            <div>
-              <h3>Match Log</h3>
-              <p>Persistent play-by-play</p>
-            </div>
-          </div>
-
-          <div id="match-log" class="log-scroll">
-            <ol id="match-log-list"></ol>
-          </div>
-        </section>
-
-        <section class="inspector-panel">
-          <div class="inspector-head">
-            <div>
-              <h3>Pinfall Decks</h3>
-              <p>Top of deck shown first</p>
-            </div>
-          </div>
-
-          <div class="pinfall-grid">
-            <article class="pinfall-view">
-              <h4>Opponent Pinfall Deck</h4>
-              <p id="enemy-pinfall-summary" class="pinfall-summary"></p>
-              <div id="enemy-pinfall-cards" class="pinfall-card-list"></div>
-            </article>
-
-            <article class="pinfall-view">
-              <h4>Your Pinfall Deck</h4>
-              <p id="player-pinfall-summary" class="pinfall-summary"></p>
-              <div id="player-pinfall-cards" class="pinfall-card-list"></div>
-            </article>
-          </div>
-        </section>
-      </section>
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <div id="log-modal" class="log-modal" hidden>
+    <button class="log-modal__backdrop" type="button" aria-label="Close match log"></button>
+    <div class="log-modal__panel">
+      <div class="log-modal__header">
+        <h2>Match Log</h2>
+        <button id="close-log-button" class="secondary-button" type="button">Close</button>
+      </div>
+      <div class="log-modal__body">
+        <ol id="match-log-list"></ol>
+      </div>
+    </div>
+  </div>
+
+  <div id="card-modal" class="card-modal" hidden>
+    <button class="card-modal__backdrop" type="button" aria-label="Close card details"></button>
+    <div class="card-modal__panel">
+      <div class="card-modal__header">
+        <div>
+          <p id="card-modal-type" class="card-modal__type"></p>
+          <h2 id="card-modal-title" class="card-modal__title"></h2>
+        </div>
+        <button id="close-card-button" class="secondary-button" type="button">Close</button>
+      </div>
+      <div class="card-modal__stats">
+        <p id="card-modal-meta" class="card-modal__meta"></p>
+        <p id="card-modal-value" class="card-modal__value"></p>
+        <p id="card-modal-reason" class="card-modal__reason"></p>
+      </div>
+      <p id="card-modal-effect" class="card-modal__effect"></p>
+      <div class="card-modal__actions">
+        <button id="card-modal-action" class="primary-button" type="button">Play Card</button>
+      </div>
+    </div>
+  </div>
   <script src="main.js"></script>
 </body>
 </html>

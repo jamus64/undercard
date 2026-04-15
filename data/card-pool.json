@@ -1,0 +1,141 @@
+[
+  {
+    "id": "chop",
+    "name": "Knife-Edge Chop",
+    "type": "attack",
+    "rarity": "common",
+    "slot": 1,
+    "damage": 5,
+    "missDamage": 1
+  },
+  {
+    "id": "cheap_shot",
+    "name": "Eye Rake",
+    "type": "attack",
+    "rarity": "uncommon",
+    "slot": 1,
+    "damage": 4,
+    "missDamage": 1,
+    "effects": [
+      { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
+    ]
+  },
+  {
+    "id": "dropkick",
+    "name": "Flash Dropkick",
+    "type": "attack",
+    "rarity": "common",
+    "slot": 2,
+    "damage": 7,
+    "missDamage": 2
+  },
+  {
+    "id": "suplex",
+    "name": "Snap Suplex",
+    "type": "attack",
+    "rarity": "uncommon",
+    "slot": 2,
+    "damage": 9,
+    "missDamage": 2
+  },
+  {
+    "id": "clothesline",
+    "name": "Short-Arm Lariat",
+    "type": "attack",
+    "rarity": "common",
+    "slot": 3,
+    "damage": 10,
+    "missDamage": 2
+  },
+  {
+    "id": "knee_lift",
+    "name": "Rising Knee",
+    "type": "attack",
+    "rarity": "uncommon",
+    "slot": 3,
+    "damage": 8,
+    "missDamage": 2,
+    "effects": [
+      { "type": "stun", "target": "opponent" }
+    ]
+  },
+  {
+    "id": "fighting_spirit",
+    "name": "Fired Up",
+    "type": "taunt",
+    "rarity": "uncommon",
+    "slot": "any",
+    "effects": [
+      { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
+    ]
+  },
+  {
+    "id": "trash_talk",
+    "name": "Hot Mic",
+    "type": "taunt",
+    "rarity": "common",
+    "slot": "any",
+    "effects": [
+      { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
+    ]
+  },
+  {
+    "id": "crowd_rally",
+    "name": "Play to the Crowd",
+    "type": "taunt",
+    "rarity": "common",
+    "slot": "any",
+    "effects": [
+      { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
+    ]
+  },
+  {
+    "id": "cover",
+    "name": "Hook the Leg",
+    "type": "pin",
+    "rarity": "common",
+    "slot": 3
+  },
+  {
+    "id": "lateral_press",
+    "name": "Flash Press",
+    "type": "pin",
+    "rarity": "uncommon",
+    "slot": 2
+  },
+  {
+    "id": "schoolboy",
+    "name": "Sneak Roll-Up",
+    "type": "pin",
+    "rarity": "rare",
+    "slot": 1
+  },
+  {
+    "id": "sidestep",
+    "name": "Slip Aside",
+    "type": "dodge",
+    "rarity": "common",
+    "missDamage": 2
+  },
+  {
+    "id": "drop_down",
+    "name": "Drop Under",
+    "type": "dodge",
+    "rarity": "uncommon",
+    "missDamage": 3
+  },
+  {
+    "id": "arm_drag_counter",
+    "name": "Arm Drag Escape",
+    "type": "reversal",
+    "rarity": "common",
+    "reversalDamage": 6
+  },
+  {
+    "id": "snap_counter",
+    "name": "Cutoff Counter",
+    "type": "reversal",
+    "rarity": "uncommon",
+    "reversalDamage": 8
+  }
+]

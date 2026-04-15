@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Joey 'Haddock Hands' Briggs",
+    "signature": {
+      "name": "Dockside Backhand",
+      "slot": 2,
+      "damage": 10,
+      "effects": [
+        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
+      ]
+    },
+    "finisher": {
+      "name": "Trawler Drop",
+      "slot": 3,
+      "damage": 15,
+      "effects": [
+        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
+      ],
+      "immediatePin": true
+    }
+  },
+  {
+    "name": "Benji 'The Heartbreak Lid' Fellows",
+    "signature": {
+      "name": "Heartstopper Knee",
+      "slot": 2,
+      "damage": 9,
+      "effects": [
+        { "type": "stun", "target": "opponent" }
+      ]
+    },
+    "finisher": {
+      "name": "Shut the Lid",
+      "slot": 3,
+      "damage": 14,
+      "effects": [
+        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
+      ],
+      "immediatePin": true
+    }
+  },
+  {
+    "name": "Jamie 'The Best Wrestler & Fit' Wyatt",
+    "signature": {
+      "name": "Peak Form Press",
+      "slot": 2,
+      "damage": 9,
+      "effects": [
+        { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
+      ]
+    },
+    "finisher": {
+      "name": "Best Shape Bomb",
+      "slot": 3,
+      "damage": 16,
+      "effects": [
+        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 2 }
+      ],
+      "immediatePin": true
+    }
+  }
+]

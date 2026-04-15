@@ -1,0 +1,18 @@
+[
+  { "cardId": "chop", "count": 4 },
+  { "cardId": "cheap_shot", "count": 3 },
+  { "cardId": "dropkick", "count": 4 },
+  { "cardId": "suplex", "count": 3 },
+  { "cardId": "clothesline", "count": 4 },
+  { "cardId": "knee_lift", "count": 3 },
+  { "cardId": "fighting_spirit", "count": 3 },
+  { "cardId": "trash_talk", "count": 3 },
+  { "cardId": "crowd_rally", "count": 3 },
+  { "cardId": "cover", "count": 3 },
+  { "cardId": "lateral_press", "count": 2 },
+  { "cardId": "schoolboy", "count": 1 },
+  { "cardId": "sidestep", "count": 4 },
+  { "cardId": "drop_down", "count": 2 },
+  { "cardId": "arm_drag_counter", "count": 4 },
+  { "cardId": "snap_counter", "count": 2 }
+]
