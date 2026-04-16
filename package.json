@@ -1,0 +1,22 @@
+{
+  "name": "undercard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "npm run test:browser",
+    "test:browser": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamus64/undercard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jamus64/undercard/issues"
+  },
+  "homepage": "https://github.com/jamus64/undercard#readme"
+}
