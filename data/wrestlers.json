@@ -2,61 +2,70 @@
   {
     "name": "Joey 'Haddock Hands' Briggs",
     "signature": {
+      "id": "joey_signature",
       "name": "Dockside Backhand",
-      "slot": 2,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 2,
       "damage": 10,
-      "effects": [
-        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
-      ]
+      "afterUse": "discard",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
     },
     "finisher": {
+      "id": "joey_finisher",
       "name": "Trawler Drop",
-      "slot": 3,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 3,
       "damage": 15,
-      "effects": [
-        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
-      ],
-      "immediatePin": true
+      "afterUse": "exhaust",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
     }
   },
   {
     "name": "Benji 'The Heartbreak Lid' Fellows",
     "signature": {
+      "id": "benji_signature",
       "name": "Heartstopper Knee",
-      "slot": 2,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 2,
       "damage": 9,
-      "effects": [
-        { "type": "stun", "target": "opponent" }
-      ]
+      "afterUse": "discard",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
     },
     "finisher": {
+      "id": "benji_finisher",
       "name": "Shut the Lid",
-      "slot": 3,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 3,
       "damage": 14,
-      "effects": [
-        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
-      ],
-      "immediatePin": true
+      "afterUse": "exhaust",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
     }
   },
   {
     "name": "Jamie 'The Best Wrestler & Fit' Wyatt",
     "signature": {
+      "id": "jamie_signature",
       "name": "Peak Form Press",
-      "slot": 2,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 2,
       "damage": 9,
-      "effects": [
-        { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
-      ]
+      "afterUse": "discard",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Kickout", "target": "self", "amount": 1 }]
     },
     "finisher": {
+      "id": "jamie_finisher",
       "name": "Best Shape Bomb",
-      "slot": 3,
+      "type": "attack",
+      "rarity": "special",
+      "validSlot": 3,
       "damage": 16,
-      "effects": [
-        { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 2 }
-      ],
-      "immediatePin": true
+      "afterUse": "exhaust",
+      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 2 }]
     }
   }
 ]

@@ -9,7 +9,14 @@
 <body>
   <main class="page-shell">
     <header class="page-header">
-      <h1>UnderCard</h1>
+      <div class="page-header__brand">
+        <p class="page-header__eyebrow">Mobile Prototype</p>
+        <h1>UnderCard</h1>
+      </div>
+      <div class="page-header__actions">
+        <button id="full-log-button" class="secondary-button" type="button">Log</button>
+        <button id="restart-button" class="secondary-button" type="button">Reset</button>
+      </div>
     </header>
 
     <section class="game-shell">
@@ -23,7 +30,6 @@
           </div>
           <div class="turn-director__actions">
             <button id="director-primary" class="primary-button" type="button"></button>
-            <button id="restart-button" class="secondary-button" type="button">Reset Match</button>
           </div>
         </section>
 
@@ -31,7 +37,7 @@
 
         <section class="field-layout">
           <div class="summary-column">
-            <article id="enemy-summary" class="wrestler-block" data-state="steady">
+            <article id="enemy-summary" class="wrestler-block wrestler-block--enemy" data-state="steady">
               <div class="wrestler-block__header">
                 <h2 id="enemy-name" class="wrestler-block__name"></h2>
                 <span id="enemy-role" class="role-chip"></span>
@@ -41,7 +47,7 @@
               <p id="enemy-status" class="wrestler-block__status"></p>
             </article>
 
-            <article id="player-summary" class="wrestler-block" data-state="steady">
+            <article id="player-summary" class="wrestler-block wrestler-block--player" data-state="steady">
               <div class="wrestler-block__header">
                 <h2 id="player-name" class="wrestler-block__name"></h2>
                 <span id="player-role" class="role-chip"></span>
@@ -90,8 +96,8 @@
                 </div>
               </div>
               <div class="hand-panel__controls">
+                <p id="player-pin-summary" class="panel-meter hand-panel__pin-summary"></p>
                 <p id="draw-pile-count" class="panel-meter"></p>
-                <button id="full-log-button" class="secondary-button" type="button">Log</button>
                 <button id="end-turn-button" class="secondary-button" type="button">End Turn</button>
               </div>
             </div>
@@ -154,6 +160,7 @@
       </div>
     </div>
   </div>
+  <script src="game-engine.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

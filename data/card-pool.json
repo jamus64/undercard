@@ -4,138 +4,136 @@
     "name": "Knife-Edge Chop",
     "type": "attack",
     "rarity": "common",
-    "slot": 1,
+    "validSlot": 1,
     "damage": 5,
-    "missDamage": 1
+    "afterUse": "discard"
   },
   {
     "id": "cheap_shot",
     "name": "Eye Rake",
     "type": "attack",
     "rarity": "uncommon",
-    "slot": 1,
+    "validSlot": 1,
     "damage": 4,
-    "missDamage": 1,
-    "effects": [
-      { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
-    ]
+    "afterUse": "discard",
+    "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
   },
   {
     "id": "dropkick",
     "name": "Flash Dropkick",
     "type": "attack",
     "rarity": "common",
-    "slot": 2,
+    "validSlot": 2,
     "damage": 7,
-    "missDamage": 2
+    "afterUse": "discard"
   },
   {
     "id": "suplex",
     "name": "Snap Suplex",
     "type": "attack",
     "rarity": "uncommon",
-    "slot": 2,
+    "validSlot": 2,
     "damage": 9,
-    "missDamage": 2
+    "afterUse": "discard"
   },
   {
     "id": "clothesline",
     "name": "Short-Arm Lariat",
     "type": "attack",
     "rarity": "common",
-    "slot": 3,
+    "validSlot": 3,
     "damage": 10,
-    "missDamage": 2
+    "afterUse": "discard"
   },
   {
     "id": "knee_lift",
     "name": "Rising Knee",
     "type": "attack",
     "rarity": "uncommon",
-    "slot": 3,
+    "validSlot": 3,
     "damage": 8,
-    "missDamage": 2,
-    "effects": [
-      { "type": "stun", "target": "opponent" }
-    ]
+    "afterUse": "discard"
   },
   {
     "id": "fighting_spirit",
     "name": "Fired Up",
     "type": "taunt",
     "rarity": "uncommon",
-    "slot": "any",
-    "effects": [
-      { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
-    ]
+    "validSlot": 1,
+    "afterUse": "discard",
+    "onSlotEffect": [{ "type": "add_pinfall", "card": "Kickout", "target": "self", "amount": 1 }],
+    "offSlotEffect": []
   },
   {
     "id": "trash_talk",
     "name": "Hot Mic",
     "type": "taunt",
     "rarity": "common",
-    "slot": "any",
-    "effects": [
-      { "type": "pinfall", "card": "Fail", "target": "opponent", "amount": 1 }
-    ]
+    "validSlot": 2,
+    "afterUse": "discard",
+    "onSlotEffect": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }],
+    "offSlotEffect": []
   },
   {
     "id": "crowd_rally",
     "name": "Play to the Crowd",
     "type": "taunt",
     "rarity": "common",
-    "slot": "any",
-    "effects": [
-      { "type": "pinfall", "card": "Kickout", "target": "self", "amount": 1 }
-    ]
+    "validSlot": 3,
+    "afterUse": "discard",
+    "onSlotEffect": [{ "type": "add_pinfall", "card": "Kickout", "target": "self", "amount": 1 }],
+    "offSlotEffect": []
   },
   {
     "id": "cover",
     "name": "Hook the Leg",
     "type": "pin",
     "rarity": "common",
-    "slot": 3
+    "validSlot": "any",
+    "afterUse": "discard"
   },
   {
     "id": "lateral_press",
     "name": "Flash Press",
     "type": "pin",
     "rarity": "uncommon",
-    "slot": 2
+    "validSlot": "any",
+    "afterUse": "discard"
   },
   {
     "id": "schoolboy",
     "name": "Sneak Roll-Up",
     "type": "pin",
     "rarity": "rare",
-    "slot": 1
+    "validSlot": "any",
+    "afterUse": "discard"
   },
   {
     "id": "sidestep",
     "name": "Slip Aside",
     "type": "dodge",
     "rarity": "common",
-    "missDamage": 2
+    "afterUse": "discard"
   },
   {
     "id": "drop_down",
     "name": "Drop Under",
     "type": "dodge",
     "rarity": "uncommon",
-    "missDamage": 3
+    "afterUse": "discard"
   },
   {
     "id": "arm_drag_counter",
     "name": "Arm Drag Escape",
     "type": "reversal",
     "rarity": "common",
-    "reversalDamage": 6
+    "afterUse": "discard"
   },
   {
     "id": "snap_counter",
     "name": "Cutoff Counter",
     "type": "reversal",
     "rarity": "uncommon",
-    "reversalDamage": 8
+    "afterUse": "discard"
   }
 ]
