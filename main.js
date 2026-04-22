@@ -1,16 +1,20 @@
 const Engine = window.UnderCardEngine;
+const CardImporter = window.UndercardCards;
 
 if (!Engine) {
   throw new Error("UnderCardEngine failed to load.");
 }
 
+if (!CardImporter) {
+  throw new Error("UndercardCards failed to load.");
+}
+
 const DEFAULT_PLAYER_WRESTLER = "Jamie 'The Best Wrestler & Fit' Wyatt";
-const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 1 };
+const EXPECTED_CARD_COUNT = 48;
 const AI_STEP_DELAY = 1000;
 
 const DATA_FILES = {
-  cardPool: "data/card-pool.json",
-  deckRecipe: "data/deck-recipe.json",
+  cardsCsv: "undercards.csv",
   wrestlers: "data/wrestlers.json"
 };
 
@@ -151,60 +155,67 @@ async function boot() {
 }
 
 async function loadGameData() {
-  const loaded = await Promise.all(
-    Object.entries(DATA_FILES).map(async ([key, path]) => {
-      const response = await fetch(path);
+  const [cardsCsvResponse, wrestlersResponse] = await Promise.all([
+    fetch(DATA_FILES.cardsCsv),
+    fetch(DATA_FILES.wrestlers)
+  ]);
 
-      if (!response.ok) {
-        throw new Error(`Could not load game data from ${path}.`);
-      }
+  if (!cardsCsvResponse.ok) {
+    throw new Error(`Could not load game data from ${DATA_FILES.cardsCsv}.`);
+  }
 
-      const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error(`Game data in ${path} is empty or invalid.`);
-      }
+  if (!wrestlersResponse.ok) {
+    throw new Error(`Could not load game data from ${DATA_FILES.wrestlers}.`);
+  }
 
-      return [key, data];
-    })
-  );
+  const [cardsCsvText, wrestlers] = await Promise.all([
+    cardsCsvResponse.text(),
+    wrestlersResponse.json()
+  ]);
 
-  loaded.forEach(([key, data]) => {
-    gameData[key] = data;
-  });
+  if (!Array.isArray(wrestlers) || wrestlers.length === 0) {
+    throw new Error(`Game data in ${DATA_FILES.wrestlers} is empty or invalid.`);
+  }
 
+  gameData.cardPool = CardImporter.buildCardCatalogFromCsv(cardsCsvText);
   gameData.cardLookup = Object.fromEntries(gameData.cardPool.map((card) => [card.id, card]));
+  gameData.deckRecipe = CardImporter.buildSharedDeckRecipe(gameData.cardPool);
+  gameData.wrestlers = wrestlers;
 }
 
 function validateGameData() {
-  const baseDeckSize = gameData.deckRecipe.reduce((sum, entry) => sum + entry.count, 0);
-  if (baseDeckSize !== 48) {
-    throw new Error(`Base maneuver recipe must total 48 cards. Found ${baseDeckSize}.`);
+  if (gameData.cardPool.length !== EXPECTED_CARD_COUNT) {
+    throw new Error(
+      `Expected ${EXPECTED_CARD_COUNT} CSV cards. Imported ${gameData.cardPool.length}.`
+    );
   }
 
+  const ids = new Set();
   gameData.deckRecipe.forEach((entry) => {
     const card = gameData.cardLookup[entry.cardId];
     if (!card) {
       throw new Error(`Deck recipe references unknown card id "${entry.cardId}".`);
     }
 
-    if (entry.count > RARITY_LIMITS[card.rarity]) {
-      throw new Error(`Deck recipe exceeds ${card.name}'s copy limit.`);
+    if (ids.has(entry.cardId)) {
+      throw new Error(`Deck recipe duplicates "${entry.cardId}".`);
     }
+
+    ids.add(entry.cardId);
   });
 
-  gameData.wrestlers.forEach((wrestler) => {
-    if (!wrestler.name || !wrestler.signature || !wrestler.finisher) {
-      throw new Error("Each wrestler needs a name, signature, and finisher.");
-    }
+  validateSharedDeck(Engine.buildDeckFromRecipe(gameData.cardLookup, gameData.deckRecipe));
 
-    const deck = Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, gameData.deckRecipe);
-    validateDeckForWrestler(deck, wrestler.name);
+  gameData.wrestlers.forEach((wrestler) => {
+    if (!wrestler.name) {
+      throw new Error("Each wrestler needs a name.");
+    }
   });
 }
 
-function validateDeckForWrestler(deck, wrestlerName) {
-  if (deck.length !== 50) {
-    throw new Error(`${wrestlerName}'s deck must contain exactly 50 cards.`);
+function validateSharedDeck(deck) {
+  if (deck.length !== EXPECTED_CARD_COUNT) {
+    throw new Error(`Shared deck must contain exactly ${EXPECTED_CARD_COUNT} cards.`);
   }
 
   const counts = {};
@@ -218,14 +229,12 @@ function validateDeckForWrestler(deck, wrestlerName) {
   });
 
   if (pinCount < 1) {
-    throw new Error(`${wrestlerName}'s deck must contain at least 1 pin card.`);
+    throw new Error("Shared deck must contain at least 1 pin card.");
   }
 
-  Object.entries(counts).forEach(([cardId, count]) => {
-    const card = deck.find((entry) => entry.id === cardId);
-    const limit = RARITY_LIMITS[card.rarity] || 1;
-    if (count > limit) {
-      throw new Error(`${wrestlerName}'s deck exceeds ${card.name}'s copy limit.`);
+  Object.values(counts).forEach((count) => {
+    if (count !== 1) {
+      throw new Error("Shared deck should contain one copy of each imported CSV card.");
     }
   });
 }
@@ -236,7 +245,7 @@ function renderStartupError(error) {
   dom.startupError.hidden = false;
   dom.startupError.innerHTML = `
     <h2>Unable to load game data</h2>
-    <p>Check the browser console and confirm the local JSON files are available.</p>
+    <p>Check the browser console and confirm the local CSV and roster files are available.</p>
     <p class="startup-error__detail">${error.message}</p>
   `;
 }
@@ -259,12 +268,12 @@ function startMatch(currentApp) {
   currentApp.state = Engine.createMatch({
     player: {
       name: matchup.player.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.player, gameData.cardLookup, gameData.deckRecipe),
+      maneuverDeck: Engine.buildDeckFromRecipe(gameData.cardLookup, gameData.deckRecipe),
       shuffleManeuverDeck: true
     },
     enemy: {
       name: matchup.enemy.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.enemy, gameData.cardLookup, gameData.deckRecipe),
+      maneuverDeck: Engine.buildDeckFromRecipe(gameData.cardLookup, gameData.deckRecipe),
       shuffleManeuverDeck: true
     }
   });
@@ -288,14 +297,8 @@ function pickRandomMatchup() {
 
 function cloneWrestler(wrestler) {
   return {
-    name: wrestler.name,
-    signature: { ...wrestler.signature, onHitEffects: cloneEffects(wrestler.signature.onHitEffects) },
-    finisher: { ...wrestler.finisher, onHitEffects: cloneEffects(wrestler.finisher.onHitEffects) }
+    name: wrestler.name
   };
-}
-
-function cloneEffects(effects) {
-  return Array.isArray(effects) ? effects.map((effect) => ({ ...effect })) : [];
 }
 
 function refreshApp() {
@@ -381,16 +384,7 @@ function runEnemyDefenseStep() {
   }
 
   Engine.prepareDefence(app.state, decision.handIndex);
-  renderApp(app);
-
-  scheduleCall(app, AI_STEP_DELAY, () => {
-    if (!app.state || !app.state.resolution || !app.state.resolution.awaitingCoinCall) {
-      return;
-    }
-
-    Engine.callDefenceCoin(app.state, decision.call);
-    refreshApp();
-  });
+  refreshApp();
 }
 
 function scheduleCall(currentApp, delay, callback) {
@@ -812,26 +806,8 @@ function buildActionModel(state) {
 }
 
 function buildPlayerDefenceModel(state, isPin) {
-  if (state.resolution.awaitingCoinCall && state.resolution.defence) {
-    return {
-      title: "Call the Coin",
-      text: `${state.resolution.defence.card.name} is ready. Pick Heads or Tails.`,
-      outcome: buildCoinModeText(state.resolution.defence.coinMode),
-      phase: isPin ? "Pin defence" : `Slot ${state.resolution.slot} defence`,
-      buttons: Engine.COIN_SIDES.map((side) => {
-        return {
-          label: side,
-          tone: side === "Heads" ? "action-button--dodge" : "action-button--reversal",
-          onClick: () => {
-            Engine.callDefenceCoin(app.state, side);
-            refreshApp();
-          }
-        };
-      })
-    };
-  }
-
   const attackCard = state.resolution.card;
+  const attackProfile = state.resolution.attackProfile;
   const defenceButtons = Engine.getDefenseOptions(state, "player").map((entry) => {
     return {
       label: entry.card.name,
@@ -846,13 +822,13 @@ function buildPlayerDefenceModel(state, isPin) {
   return {
     title: isPin ? "Pin Incoming" : `Defend Slot ${state.resolution.slot}`,
     text: isPin
-      ? `${attackCard.name} has been played. Decide whether to dodge, reverse, or take the pin.`
-      : `${attackCard.name} is ${state.resolution.onSlot ? "on-slot" : "off-slot"} for ${attackCard.damage} damage.`,
+      ? `${attackCard.name} has been played. Choose dodge, reversal, or no defence.`
+      : `${attackCard.name} is ${state.resolution.onSlot ? "on-slot" : "off-slot"} for ${attackProfile.attackDamage} ATK.`,
     outcome: isPin
-      ? "A successful reversal flips the same pin back."
+      ? "A successful reversal flips the same pin back after a d20 roll-off."
       : state.resolution.onSlot
-        ? "No defence or a failed defence lets the attack land."
-        : "Off-slot attack: the defender has advantage on the coin flip.",
+        ? `Dodge deals ${attackProfile.missDamage} miss damage back. Reversal deals ${attackProfile.reversalDamage} reversal damage back.`
+        : `Off-slot attack: defender has d20 advantage. Dodge deals ${attackProfile.missDamage} miss damage. Reversal deals ${attackProfile.reversalDamage} reversal damage.`,
     phase: isPin ? "Pin defence" : "Attack defence",
     buttons: [
       ...defenceButtons,
@@ -866,18 +842,6 @@ function buildPlayerDefenceModel(state, isPin) {
       }
     ]
   };
-}
-
-function buildCoinModeText(mode) {
-  if (mode === "advantage") {
-    return "Two flips. One matching side succeeds.";
-  }
-
-  if (mode === "disadvantage") {
-    return "Two flips. Both sides must match.";
-  }
-
-  return "One flip decides it.";
 }
 
 function renderWrestlerPanel(state, wrestlerKey, panelDom) {
@@ -1063,10 +1027,6 @@ function getPlayerHandMode(state, card) {
       : { clickable: false, reason: "Not a defence card." };
   }
 
-  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingCoinCall) {
-    return { clickable: false, reason: "Call the coin first." };
-  }
-
   if (state.turn.attackerKey !== "player" || state.phase !== Engine.PHASES.CHOOSE_NEXT_ACTION) {
     return { clickable: false, reason: "Wait for your turn." };
   }
@@ -1160,7 +1120,7 @@ function openCardModal(currentApp, entry) {
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
   dom.cardModalMeta.textContent = formatCardSlot(card);
-  dom.cardModalValue.textContent = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
+  dom.cardModalValue.textContent = formatCardStatLine(card);
   dom.cardModalReason.textContent = cardReason;
   dom.cardModalReason.hidden = !cardReason;
   dom.cardModalEffect.textContent = describeCard(card);
@@ -1220,6 +1180,10 @@ function formatCardSlot(card) {
     return "Defense";
   }
 
+  if (Array.isArray(card.validSlot)) {
+    return `Slot ${card.validSlot.join(" / ")}`;
+  }
+
   return `Slot ${card.validSlot}`;
 }
 
@@ -1236,12 +1200,12 @@ function formatCardPrimaryValue(card) {
     return "PIN";
   }
 
-  return "DEF";
+  return "D20";
 }
 
 function formatCardPrimaryLabel(card) {
   if (card.type === "attack") {
-    return "Damage";
+    return "ATK";
   }
 
   if (card.type === "taunt") {
@@ -1255,19 +1219,39 @@ function formatCardPrimaryLabel(card) {
   return "Defense";
 }
 
+function formatCardStatLine(card) {
+  if (card.type === "attack") {
+    return `ATK ${card.damage || 0} / RVS ${card.reversalDamage || 0} / MSS ${card.missDamage || 0}`;
+  }
+
+  if (card.type === "pin") {
+    return "Pin / Any slot";
+  }
+
+  if (card.type === "taunt") {
+    return `Taunt / ${formatCardSlot(card)}`;
+  }
+
+  return "Defense / d20 roll-off";
+}
+
 function describeCard(card) {
   const parts = [];
 
   if (card.type === "attack") {
-    parts.push(`Deals ${card.damage} damage.`);
+    parts.push(`ATK ${card.damage || 0}, RVS ${card.reversalDamage || 0}, MSS ${card.missDamage || 0}.`);
   }
 
   if (card.type === "taunt") {
-    parts.push(`Undefendable taunt for slot ${card.validSlot}.`);
+    parts.push(`Undefendable taunt for ${formatCardSlot(card).toLowerCase()}.`);
   }
 
   if (card.type === "pin") {
     parts.push("Slot-agnostic. Ends the offensive sequence immediately.");
+  }
+
+  if (card.effectText) {
+    parts.push(card.effectText);
   }
 
   if (card.onSlotEffect?.length) {
@@ -1282,8 +1266,20 @@ function describeCard(card) {
     parts.push(`On hit: ${formatEffects(card.onHitEffects)}.`);
   }
 
+  if (card.onDodgedEffects?.length) {
+    parts.push(`If dodged: ${formatEffects(card.onDodgedEffects)}.`);
+  }
+
   if (card.onPinEffects?.length) {
     parts.push(`On pin: ${formatEffects(card.onPinEffects)}.`);
+  }
+
+  if (card.immediatePin) {
+    parts.push("If the attack lands, it immediately starts a pin attempt.");
+  }
+
+  if (card.flags?.replacementRule) {
+    parts.push(card.flags.replacementRule);
   }
 
   if (card.afterUse === "exhaust") {
@@ -1300,14 +1296,68 @@ function formatEffects(effects) {
         return `add ${effect.amount || 1} ${effect.card} to ${effect.target === "self" ? "your" : "their"} pinfall deck`;
       }
 
-      if (effect.type === "modify_damage") {
-        const amount = Number(effect.amount || 0);
-        return `${amount >= 0 ? "+" : ""}${amount} damage`;
+      if (effect.type === "add_pinfall_per_slot") {
+        return `add ${effect.card} cards equal to the slot to ${effect.target === "self" ? "your" : "their"} pinfall deck`;
+      }
+
+      if (effect.type === "draw_cards" || effect.type === "draw") {
+        return `${effect.target === "self" ? "draw" : "opponent draws"} ${effect.amount || 1}`;
+      }
+
+      if (effect.type === "discard_random") {
+        return `${effect.target === "self" ? "discard" : "opponent discards"} ${effect.amount || 1} at random`;
+      }
+
+      if (effect.type === "discard_forced" || effect.type === "discard") {
+        return `${effect.target === "self" ? "discard" : "opponent discards"} ${effect.amount || 1}`;
+      }
+
+      if (effect.type === "apply_damage") {
+        return `${effect.target === "self" ? "take" : "deal"} ${effect.amount || 0} damage`;
+      }
+
+      if (effect.type === "add_next_attack_bonus") {
+        return `next attack gets +${effect.amount || 0} ATK`;
+      }
+
+      if (effect.type === "add_slot_bonus") {
+        const slots = Array.isArray(effect.slots) ? effect.slots.join(" / ") : "";
+        return `slots ${slots} get +${effect.attack || 0} ATK / +${effect.reversal || 0} RVS / +${effect.miss || 0} MSS`;
+      }
+
+      if (effect.type === "grant_next_rolloff_auto_win") {
+        return "next offensive roll-off cannot be lost";
+      }
+
+      if (effect.type === "roll_off") {
+        return `d20 roll-off (${formatRollOffOutcome(effect)})`;
+      }
+
+      if (effect.type === "repeat_roll_off") {
+        return `${effect.count || 1} d20 roll-offs (${formatRollOffOutcome(effect)})`;
+      }
+
+      if (effect.type === "immediate_pin") {
+        return "immediately start a pin attempt";
       }
 
       return effect.type;
     })
     .join(", ");
+}
+
+function formatRollOffOutcome(effect) {
+  const outcomes = [];
+
+  if (effect.onWinEffects?.length) {
+    outcomes.push(`win: ${formatEffects(effect.onWinEffects)}`);
+  }
+
+  if (effect.onLoseEffects?.length) {
+    outcomes.push(`lose: ${formatEffects(effect.onLoseEffects)}`);
+  }
+
+  return outcomes.join(" / ");
 }
 
 function canPlayerStopEarly(state) {
@@ -1344,6 +1394,44 @@ function formatDefenceSummary(defence) {
   }
 
   return `${capitalize(defence.choice)} ${defence.success ? "success" : "failed"}`;
+}
+
+function shortenCardName(name) {
+  return name.length > 16 ? `${name.slice(0, 13)}...` : name;
+}
+
+function formatDefenceSummary(defence) {
+  if (defence.choice === "none") {
+    return "No defence";
+  }
+
+  if (defence.success === null) {
+    return `${capitalize(defence.choice)} readied`;
+  }
+
+  const summary = `${capitalize(defence.choice)} ${defence.success ? "success" : "failed"}`;
+  if (!defence.contest) {
+    return summary;
+  }
+
+  return `${summary} / ${formatContestSummary(defence.contest)}`;
+}
+
+function formatContestSummary(contest) {
+  return `d20 ${formatContestRoll(contest.defenderRoll)} vs ${formatContestRoll(contest.attackerRoll)}`;
+}
+
+function formatContestRoll(result) {
+  if (!result) {
+    return "";
+  }
+
+  if (result.mode === "normal") {
+    return String(result.final);
+  }
+
+  const label = result.mode === "advantage" ? "adv" : "dis";
+  return `${result.rolls.join("/")} (${label} ${result.final})`;
 }
 
 function lastLogLine(state) {
