@@ -63,9 +63,11 @@ button[hidden],
 }
 
 .page-shell {
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .page-header {
@@ -119,6 +121,7 @@ button[hidden],
   flex: 1;
   min-height: 0;
   padding: 0 var(--screen-pad) 4px;
+  overflow: hidden;
 }
 
 .app-content {
@@ -364,9 +367,13 @@ button[hidden],
 }
 
 .wrestler-block__name {
-  font-size: 0.94rem;
-  line-height: 1;
+  font-size: 0.9rem;
+  line-height: 0.98;
   font-weight: 900;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .wrestler-block__stats,

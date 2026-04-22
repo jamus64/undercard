@@ -1,17 +1,12 @@
-﻿const HAND_SIZE = 6;
-const MAX_SEQUENCE_SLOTS = 3;
-const DAMAGE_PER_FAIL = 10;
-const PIN_DRAW_COUNT = 3;
-const STARTING_PIN_FAILS = 3;
-const STARTING_PIN_KICKOUTS = 7;
-const ENEMY_TURN_DELAY = 850;
-const PIN_DRAW_DELAY = 650;
-const COIN_SIDES = ["Heads", "Tails"];
-const DEFAULT_PLAYER_WRESTLER = "Jamie 'The Best Wrestler & Fit' Wyatt";
+const Engine = window.UnderCardEngine;
 
-const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
-const DEFENSIVE_TYPES = new Set(["dodge", "reversal"]);
+if (!Engine) {
+  throw new Error("UnderCardEngine failed to load.");
+}
+
+const DEFAULT_PLAYER_WRESTLER = "Jamie 'The Best Wrestler & Fit' Wyatt";
 const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 1 };
+const AI_STEP_DELAY = 1000;
 
 const DATA_FILES = {
   cardPool: "data/card-pool.json",
@@ -21,30 +16,42 @@ const DATA_FILES = {
 
 const gameData = {
   cardPool: [],
+  cardLookup: {},
   deckRecipe: [],
-  wrestlers: [],
-  cardLookup: {}
+  wrestlers: []
 };
 
 const app = {
   isReady: false,
   state: null,
-  timers: new Set(),
   ui: {
     handFilter: "usable"
-  }
+  },
+  timers: new Set()
 };
 
 const dom = {
-  gameShell: document.querySelector(".game-shell"),
-  playArea: document.querySelector(".play-area"),
   appContent: document.getElementById("app-content"),
   startupError: document.getElementById("startup-error"),
   restartButton: document.getElementById("restart-button"),
+  fullLogButton: document.getElementById("full-log-button"),
+  closeLogButton: document.getElementById("close-log-button"),
+  logModal: document.getElementById("log-modal"),
+  logModalBackdrop: document.querySelector("#log-modal .log-modal__backdrop"),
+  matchLogList: document.getElementById("match-log-list"),
+  closeCardButton: document.getElementById("close-card-button"),
+  cardModal: document.getElementById("card-modal"),
+  cardModalBackdrop: document.querySelector("#card-modal .card-modal__backdrop"),
+  cardModalType: document.getElementById("card-modal-type"),
+  cardModalTitle: document.getElementById("card-modal-title"),
+  cardModalMeta: document.getElementById("card-modal-meta"),
+  cardModalValue: document.getElementById("card-modal-value"),
+  cardModalReason: document.getElementById("card-modal-reason"),
+  cardModalEffect: document.getElementById("card-modal-effect"),
+  cardModalAction: document.getElementById("card-modal-action"),
   directorTitle: document.getElementById("director-title"),
   directorSubtitle: document.getElementById("director-subtitle"),
   directorPrimary: document.getElementById("director-primary"),
-  endTurnButton: document.getElementById("end-turn-button"),
   outcomeBanner: document.getElementById("outcome-banner"),
   sequenceCombo: document.getElementById("sequence-combo"),
   sequenceSlots: document.getElementById("sequence-slots"),
@@ -54,37 +61,13 @@ const dom = {
   actionPhase: document.getElementById("action-phase"),
   actionButtons: document.getElementById("action-buttons"),
   actionPanel: document.querySelector(".action-panel"),
-  choicePanel: document.querySelector(".choice-panel"),
-  drawPileCount: document.getElementById("draw-pile-count"),
-  playerPinSummary: document.getElementById("player-pin-summary"),
   handCards: document.getElementById("hand-cards"),
   handFilters: document.getElementById("hand-filters"),
-  matchLogList: document.getElementById("match-log-list"),
+  drawPileCount: document.getElementById("draw-pile-count"),
+  playerPinSummary: document.getElementById("player-pin-summary"),
+  endTurnButton: document.getElementById("end-turn-button"),
   recentEventsList: document.getElementById("recent-events-list"),
-  fullLogButton: document.getElementById("full-log-button"),
-  logModal: document.getElementById("log-modal"),
-  logModalBackdrop: document.querySelector("#log-modal .log-modal__backdrop"),
-  closeLogButton: document.getElementById("close-log-button"),
-  cardModal: document.getElementById("card-modal"),
-  cardModalBackdrop: document.querySelector("#card-modal .card-modal__backdrop"),
-  closeCardButton: document.getElementById("close-card-button"),
-  cardModalType: document.getElementById("card-modal-type"),
-  cardModalTitle: document.getElementById("card-modal-title"),
-  cardModalMeta: document.getElementById("card-modal-meta"),
-  cardModalValue: document.getElementById("card-modal-value"),
-  cardModalReason: document.getElementById("card-modal-reason"),
-  cardModalEffect: document.getElementById("card-modal-effect"),
-  cardModalAction: document.getElementById("card-modal-action"),
-  effectsLayer: document.getElementById("effects-layer"),
   wrestlerPanels: {
-    enemy: {
-      card: document.getElementById("enemy-summary"),
-      name: document.getElementById("enemy-name"),
-      role: document.getElementById("enemy-role"),
-      stats: document.getElementById("enemy-stats"),
-      pin: document.getElementById("enemy-pin"),
-      status: document.getElementById("enemy-status")
-    },
     player: {
       card: document.getElementById("player-summary"),
       name: document.getElementById("player-name"),
@@ -92,241 +75,69 @@ const dom = {
       stats: document.getElementById("player-stats"),
       pin: document.getElementById("player-pin"),
       status: document.getElementById("player-status")
+    },
+    enemy: {
+      card: document.getElementById("enemy-summary"),
+      name: document.getElementById("enemy-name"),
+      role: document.getElementById("enemy-role"),
+      stats: document.getElementById("enemy-stats"),
+      pin: document.getElementById("enemy-pin"),
+      status: document.getElementById("enemy-status")
     }
   }
 };
 
-function prefersReducedMotion() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-}
+bindEvents();
+boot();
 
-function getHandCardElement(handIndex) {
-  return dom.handCards?.querySelector(`[data-hand-index="${handIndex}"]`) || null;
-}
+function bindEvents() {
+  dom.restartButton?.addEventListener("click", restartMatch);
+  dom.fullLogButton?.addEventListener("click", openLogModal);
+  dom.closeLogButton?.addEventListener("click", closeLogModal);
+  dom.logModalBackdrop?.addEventListener("click", closeLogModal);
+  dom.closeCardButton?.addEventListener("click", closeCardModal);
+  dom.cardModalBackdrop?.addEventListener("click", closeCardModal);
 
-function getSequenceCardElement(slot, laneKey) {
-  return dom.sequenceSlots?.querySelector(`.sequence-card[data-slot="${slot}"][data-lane="${laneKey}"]`) || null;
-}
-
-function makeRectAtCenter(rect, width, height) {
-  if (!rect) {
-    return null;
-  }
-
-  const resolvedWidth = Math.min(width, rect.width || width);
-  const resolvedHeight = Math.min(height, rect.height || height);
-
-  return {
-    left: rect.left + rect.width / 2 - resolvedWidth / 2,
-    top: rect.top + rect.height / 2 - resolvedHeight / 2,
-    width: resolvedWidth,
-    height: resolvedHeight
-  };
-}
-
-function getPlaySourceRect(actorKey, handIndex, options = {}) {
-  if (actorKey === "player") {
-    const element = getHandCardElement(handIndex);
-    return element ? element.getBoundingClientRect() : null;
-  }
-
-  const panel = dom.wrestlerPanels[actorKey]?.card;
-  return panel ? makeRectAtCenter(panel.getBoundingClientRect(), options.width || 132, options.height || 92) : null;
-}
-
-function queueCardMotionEffect(sourceRect, slot, laneKey, card, result = "") {
-  if (!sourceRect || !slot || prefersReducedMotion()) {
-    return;
-  }
-
-  window.requestAnimationFrame(() => {
-    const targetElement = getSequenceCardElement(slot, laneKey);
-
-    if (!targetElement) {
+  dom.endTurnButton?.addEventListener("click", () => {
+    if (!canPlayerStopEarly(app.state)) {
       return;
     }
 
-    animateCardMotionEffect(sourceRect, targetElement.getBoundingClientRect(), card, result);
-  });
-}
-
-function animateCardMotionEffect(sourceRect, targetRect, card, result) {
-  if (!dom.effectsLayer || !sourceRect || !targetRect) {
-    return;
-  }
-
-  const effect = document.createElement("div");
-  effect.className = "effect-card effect-card--motion";
-  effect.style.left = `${sourceRect.left}px`;
-  effect.style.top = `${sourceRect.top}px`;
-  effect.style.width = `${sourceRect.width}px`;
-  effect.style.height = `${sourceRect.height}px`;
-  effect.style.transform = "rotate(-6deg) scale(0.96)";
-  effect.innerHTML = `
-    <p class="effect-card__type">${capitalize(card.type)}</p>
-    <p class="effect-card__name">${card.name}</p>
-    <p class="effect-card__result">${result || "In play"}</p>
-  `;
-  dom.effectsLayer.appendChild(effect);
-
-  window.requestAnimationFrame(() => {
-    effect.style.left = `${targetRect.left}px`;
-    effect.style.top = `${targetRect.top}px`;
-    effect.style.width = `${targetRect.width}px`;
-    effect.style.height = `${targetRect.height}px`;
-    effect.style.transform = "rotate(0deg) scale(1)";
+    Engine.stopTurn(app.state);
+    refreshApp();
   });
 
-  window.setTimeout(() => {
-    effect.style.opacity = "0";
-    effect.style.transform = "scale(0.98)";
-  }, 460);
-
-  window.setTimeout(() => {
-    effect.remove();
-  }, 720);
-}
-
-function animateCoinFlipEffect(call, flips) {
-  if (!dom.effectsLayer || prefersReducedMotion()) {
-    return;
-  }
-
-  const anchor = dom.choicePanel?.getBoundingClientRect() || dom.actionPanel?.getBoundingClientRect();
-
-  if (!anchor) {
-    return;
-  }
-
-  const coin = document.createElement("div");
-  coin.className = "effect-coin";
-  coin.style.left = `${anchor.left + anchor.width / 2}px`;
-  coin.style.top = `${anchor.top + anchor.height / 2}px`;
-  coin.innerHTML = `<div class="effect-coin__face">Call<br>${call}</div>`;
-  dom.effectsLayer.appendChild(coin);
-
-  window.setTimeout(() => {
-    coin.innerHTML = `<div class="effect-coin__face">${flips.join(" / ")}</div>`;
-  }, 420);
-
-  window.setTimeout(() => {
-    coin.remove();
-  }, 1100);
-}
-
-function animatePinDrawEffect(wrestlerKey, drawnCard, count) {
-  if (!dom.effectsLayer || prefersReducedMotion()) {
-    return;
-  }
-
-  const origin = dom.wrestlerPanels[wrestlerKey]?.pin?.getBoundingClientRect();
-  const destination = dom.actionPanel?.getBoundingClientRect();
-
-  if (!origin || !destination) {
-    return;
-  }
-
-  const startRect = makeRectAtCenter(origin, 96, 56);
-  const endRect = makeRectAtCenter(destination, 110, 64);
-
-  if (!startRect || !endRect) {
-    return;
-  }
-
-  const draw = document.createElement("div");
-  draw.className = "effect-pin-draw effect-pin-draw--motion";
-  draw.style.left = `${startRect.left}px`;
-  draw.style.top = `${startRect.top}px`;
-  draw.style.transform = "scale(0.94)";
-  draw.textContent = `${drawnCard} ${count}`;
-  dom.effectsLayer.appendChild(draw);
-
-  window.requestAnimationFrame(() => {
-    draw.style.left = `${endRect.left}px`;
-    draw.style.top = `${endRect.top}px`;
-    draw.style.transform = "scale(1)";
-  });
-
-  window.setTimeout(() => {
-    draw.style.opacity = "0";
-    draw.style.transform = "scale(0.98)";
-  }, 540);
-
-  window.setTimeout(() => {
-    draw.remove();
-  }, 860);
-}
-
-dom.restartButton.addEventListener("click", restartMatch);
-dom.endTurnButton.addEventListener("click", () => {
-  if (canPlayerEndTurn(app.state)) {
-    finishTurn(app);
-  }
-});
-if (dom.fullLogButton) {
-  dom.fullLogButton.addEventListener("click", openLogModal);
-}
-if (dom.closeLogButton) {
-  dom.closeLogButton.addEventListener("click", closeLogModal);
-}
-if (dom.logModalBackdrop) {
-  dom.logModalBackdrop.addEventListener("click", closeLogModal);
-}
-if (dom.closeCardButton) {
-  dom.closeCardButton.addEventListener("click", closeCardModal);
-}
-if (dom.cardModalBackdrop) {
-  dom.cardModalBackdrop.addEventListener("click", closeCardModal);
-}
-if (dom.handFilters) {
-  dom.handFilters.addEventListener("click", (event) => {
+  dom.handFilters?.addEventListener("click", (event) => {
     const target = event.target;
-
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
     const filter = target.getAttribute("data-filter");
-
     if (!filter) {
       return;
     }
 
     app.ui.handFilter = filter;
-    dom.handFilters.querySelectorAll(".filter-chip").forEach((chip) => {
-      chip.classList.toggle("is-active", chip.getAttribute("data-filter") === filter);
-    });
+    syncHandFilterChips(filter);
     renderHand(app);
   });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (dom.cardModal && !dom.cardModal.hidden) {
+      closeCardModal();
+      return;
+    }
+
+    if (dom.logModal && !dom.logModal.hidden) {
+      closeLogModal();
+    }
+  });
 }
-document.addEventListener("click", (event) => {
-  const target = event.target;
-
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  if (target.closest(".info-button")) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") {
-    return;
-  }
-
-  if (dom.cardModal && !dom.cardModal.hidden) {
-    closeCardModal();
-    return;
-  }
-
-  if (dom.logModal && !dom.logModal.hidden) {
-    closeLogModal();
-  }
-});
-
-boot();
 
 async function boot() {
   try {
@@ -349,7 +160,6 @@ async function loadGameData() {
       }
 
       const data = await response.json();
-
       if (!Array.isArray(data) || data.length === 0) {
         throw new Error(`Game data in ${path} is empty or invalid.`);
       }
@@ -367,14 +177,12 @@ async function loadGameData() {
 
 function validateGameData() {
   const baseDeckSize = gameData.deckRecipe.reduce((sum, entry) => sum + entry.count, 0);
-
   if (baseDeckSize !== 48) {
     throw new Error(`Base maneuver recipe must total 48 cards. Found ${baseDeckSize}.`);
   }
 
   gameData.deckRecipe.forEach((entry) => {
     const card = gameData.cardLookup[entry.cardId];
-
     if (!card) {
       throw new Error(`Deck recipe references unknown card id "${entry.cardId}".`);
     }
@@ -389,7 +197,8 @@ function validateGameData() {
       throw new Error("Each wrestler needs a name, signature, and finisher.");
     }
 
-    validateDeckForWrestler(buildDeckForWrestler(wrestler), wrestler.name);
+    const deck = Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, gameData.deckRecipe);
+    validateDeckForWrestler(deck, wrestler.name);
   });
 }
 
@@ -403,7 +212,6 @@ function validateDeckForWrestler(deck, wrestlerName) {
 
   deck.forEach((card) => {
     counts[card.id] = (counts[card.id] || 0) + 1;
-
     if (card.type === "pin") {
       pinCount += 1;
     }
@@ -415,8 +223,8 @@ function validateDeckForWrestler(deck, wrestlerName) {
 
   Object.entries(counts).forEach(([cardId, count]) => {
     const card = deck.find((entry) => entry.id === cardId);
-
-    if (count > RARITY_LIMITS[card.rarity]) {
+    const limit = RARITY_LIMITS[card.rarity] || 1;
+    if (count > limit) {
       throw new Error(`${wrestlerName}'s deck exceeds ${card.name}'s copy limit.`);
     }
   });
@@ -424,1260 +232,165 @@ function validateDeckForWrestler(deck, wrestlerName) {
 
 function renderStartupError(error) {
   console.error(error);
-
-  const helperText =
-    window.location.protocol === "file:"
-      ? 'Open the project through a local server so the JSON files can load, for example <code>python -m http.server 8000</code>.'
-      : "Check the browser console and confirm the JSON files are available.";
-
   dom.appContent.hidden = true;
   dom.startupError.hidden = false;
   dom.startupError.innerHTML = `
     <h2>Unable to load game data</h2>
-    <p>${helperText}</p>
+    <p>Check the browser console and confirm the local JSON files are available.</p>
     <p class="startup-error__detail">${error.message}</p>
   `;
 }
 
 function restartMatch() {
-  if (app.isReady) {
-    startMatch(app);
+  if (!app.isReady) {
+    return;
   }
+
+  startMatch(app);
 }
 
 function startMatch(currentApp) {
   clearScheduledCalls(currentApp);
-  currentApp.ui.handFilter = "usable";
-  if (dom.handFilters) {
-    dom.handFilters.querySelectorAll(".filter-chip").forEach((chip) => {
-      chip.classList.toggle("is-active", chip.getAttribute("data-filter") === "usable");
-    });
-  }
+  closeCardModal();
+  closeLogModal();
+  resetHandFilter("usable");
 
   const matchup = pickRandomMatchup();
-  const initiativeWinnerKey = Math.random() < 0.5 ? "player" : "enemy";
+  currentApp.state = Engine.createMatch({
+    player: {
+      name: matchup.player.name,
+      maneuverDeck: Engine.buildDeckForWrestler(matchup.player, gameData.cardLookup, gameData.deckRecipe),
+      shuffleManeuverDeck: true
+    },
+    enemy: {
+      name: matchup.enemy.name,
+      maneuverDeck: Engine.buildDeckForWrestler(matchup.enemy, gameData.cardLookup, gameData.deckRecipe),
+      shuffleManeuverDeck: true
+    }
+  });
 
-  currentApp.state = {
-    player: createWrestlerState(matchup.player),
-    enemy: createWrestlerState(matchup.enemy),
-    currentTurn: initiativeWinnerKey,
-    initiativeWinnerKey,
-    turnNumber: 1,
-    sequence: createSequence(),
-    pendingDefense: null,
-    pendingCoin: null,
-    pendingStep: null,
-    pinAttempt: null,
-    isGameOver: false,
-    outcome: null,
-    statusMessage: "",
-    actionFeedback: "",
-    matchLog: [],
-    shouldScrollLog: false,
-    pinLogLines: []
-  };
-
-  drawOpeningHands(currentApp.state.player);
-  drawOpeningHands(currentApp.state.enemy);
-
-  addMatchLog(currentApp, `You step in as ${currentApp.state.player.name}.`);
-  addMatchLog(currentApp, `Opponent: ${currentApp.state.enemy.name}.`);
-  addMatchLog(currentApp, "Both wrestlers draw 6 maneuver cards.");
-  addMatchLog(
-    currentApp,
-    `Coin toss gives initiative to ${currentApp.state[initiativeWinnerKey].name}.`
-  );
-
-  beginTurn(currentApp, initiativeWinnerKey, { skipDraw: true });
+  refreshApp();
 }
 
 function pickRandomMatchup() {
   const roster = gameData.wrestlers;
   const playerTemplate =
-    roster.find((wrestler) => wrestler.name === DEFAULT_PLAYER_WRESTLER) ||
-    roster[0];
+    roster.find((wrestler) => wrestler.name === DEFAULT_PLAYER_WRESTLER) || roster[0];
   const enemyPool = roster.filter((wrestler) => wrestler.name !== playerTemplate.name);
-  const enemyTemplate = enemyPool.length > 0 ? pickRandom(enemyPool) : playerTemplate;
+  const enemyTemplate =
+    enemyPool[Math.floor(Math.random() * enemyPool.length)] || playerTemplate;
 
   return {
-    player: cloneWrestlerTemplate(playerTemplate),
-    enemy: cloneWrestlerTemplate(enemyTemplate)
+    player: cloneWrestler(playerTemplate),
+    enemy: cloneWrestler(enemyTemplate)
   };
 }
 
-function cloneWrestlerTemplate(wrestler) {
+function cloneWrestler(wrestler) {
   return {
     name: wrestler.name,
-    signature: cloneSpecialMove(wrestler.signature),
-    finisher: cloneSpecialMove(wrestler.finisher)
+    signature: { ...wrestler.signature, onHitEffects: cloneEffects(wrestler.signature.onHitEffects) },
+    finisher: { ...wrestler.finisher, onHitEffects: cloneEffects(wrestler.finisher.onHitEffects) }
   };
 }
 
-function cloneSpecialMove(move) {
-  return { ...move, effects: cloneEffects(move.effects) };
+function cloneEffects(effects) {
+  return Array.isArray(effects) ? effects.map((effect) => ({ ...effect })) : [];
 }
 
-function createWrestlerState(template) {
-  return {
-    name: template.name,
-    maneuverDeck: shuffleArray(buildDeckForWrestler(template)),
-    hand: [],
-    discardPile: [],
-    pinfallDeck: buildPinfallDeck(),
-    accumulatedDamage: 0,
-    failCardsFromDamage: 0,
-    stunned: false,
-    exhaustionPendingLoss: false
-  };
+function refreshApp() {
+  renderApp(app);
+  maybeRunAiFlow();
 }
 
-function buildDeckForWrestler(wrestler) {
-  const deck = [];
+function maybeRunAiFlow() {
+  clearScheduledCalls(app);
 
-  gameData.deckRecipe.forEach((entry) => {
-    const definition = gameData.cardLookup[entry.cardId];
-
-    for (let index = 0; index < entry.count; index += 1) {
-      deck.push(createCardInstance(definition));
-    }
-  });
-
-  deck.push(createSpecialCardInstance(wrestler, "signature"));
-  deck.push(createSpecialCardInstance(wrestler, "finisher"));
-  return deck;
-}
-
-function createCardInstance(card) {
-  return { ...card, effects: cloneEffects(card.effects) };
-}
-
-function createSpecialCardInstance(wrestler, moveKey) {
-  const move = wrestler[moveKey];
-
-  return {
-    id: `${slugify(wrestler.name)}_${moveKey}`,
-    name: move.name,
-    type: move.type || "attack",
-    rarity: "special",
-    slot: move.slot,
-    damage: move.damage || 0,
-    missDamage: move.missDamage || 2,
-    reversalDamage: move.reversalDamage || 0,
-    immediatePin: Boolean(move.immediatePin),
-    effects: cloneEffects(move.effects)
-  };
-}
-
-function cloneEffects(effects = []) {
-  return effects.map((effect) => ({ ...effect }));
-}
-
-function slugify(text) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
-function drawOpeningHands(wrestler) {
-  while (wrestler.hand.length < HAND_SIZE && wrestler.maneuverDeck.length > 0) {
-    wrestler.hand.push(wrestler.maneuverDeck.pop());
-  }
-}
-
-function buildPinfallDeck() {
-  const deck = [];
-
-  for (let index = 0; index < STARTING_PIN_FAILS; index += 1) {
-    deck.push("Fail");
-  }
-
-  for (let index = 0; index < STARTING_PIN_KICKOUTS; index += 1) {
-    deck.push("Kickout");
-  }
-
-  return shuffleArray(deck);
-}
-
-function createSequence() {
-  return {
-    nextSlot: 1,
-    totalPlayed: 0,
-    successfulSlots: 0,
-    comboEligible: true,
-    slots: Array.from({ length: MAX_SEQUENCE_SLOTS }, (_, index) => {
-      return {
-        slot: index + 1,
-        cardName: "",
-        type: "",
-        fit: true,
-        landed: false,
-        result: "Open",
-        offense: null,
-        defense: null
-      };
-    })
-  };
-}
-
-function beginTurn(currentApp, attackerKey, options = {}) {
-  if (!currentApp.state || currentApp.state.isGameOver) {
+  if (!app.state || app.state.match.over) {
     return;
   }
 
-  clearTurnInteractions(currentApp.state);
-  currentApp.state.currentTurn = attackerKey;
-  currentApp.state.sequence = createSequence();
-  currentApp.state.pinLogLines = [];
-  currentApp.state.actionFeedback = "";
-
-  const attacker = currentApp.state[attackerKey];
-
-  if (!options.skipDraw) {
-    const drawn = drawToHand(currentApp, attackerKey, HAND_SIZE);
-
-    if (drawn > 0) {
-      addMatchLog(currentApp, `${attacker.name} draws ${drawn} ${pluralize("card", drawn)}.`);
-    } else if (attacker.maneuverDeck.length === 0) {
-      addMatchLog(currentApp, `${attacker.name} has no maneuver cards left to draw.`);
-    }
-  }
-
-  if (attacker.stunned) {
-    addMatchLog(currentApp, `${attacker.name} starts the turn stunned.`);
-  }
-
-  currentApp.state.statusMessage = `${attacker.name}'s turn.`;
-  renderApp(currentApp);
-
-  if (attackerKey === "enemy") {
-    queueEnemyTurnStep(currentApp);
-  }
-}
-
-function drawToHand(currentApp, wrestlerKey, targetSize) {
-  const wrestler = currentApp.state[wrestlerKey];
-  let drawn = 0;
-
-  while (wrestler.hand.length < targetSize && wrestler.maneuverDeck.length > 0) {
-    wrestler.hand.push(wrestler.maneuverDeck.pop());
-    drawn += 1;
-  }
-
-  if (wrestler.maneuverDeck.length === 0 && !wrestler.exhaustionPendingLoss) {
-    wrestler.exhaustionPendingLoss = true;
-    addMatchLog(
-      currentApp,
-      `${wrestler.name} is out of maneuver cards and must win before this turn ends.`
-    );
-  }
-
-  return drawn;
-}
-
-function clearTurnInteractions(state) {
-  state.pendingDefense = null;
-  state.pendingCoin = null;
-  state.pendingStep = null;
-  state.pinAttempt = null;
-}
-
-function canPlayerEndTurn(state) {
-  if (!state || state.isGameOver || state.currentTurn !== "player") {
-    return false;
-  }
-
-  return (
-    !state.pendingDefense &&
-    !state.pendingCoin &&
-    !state.pendingStep &&
-    !state.pinAttempt
-  );
-}
-
-function runEnemyTurnStep(currentApp) {
-  const { state } = currentApp;
-
-  if (
-    !state ||
-    state.isGameOver ||
-    state.currentTurn !== "enemy" ||
-    state.pendingDefense ||
-    state.pendingCoin ||
-    state.pendingStep ||
-    state.pinAttempt
-  ) {
-    return;
-  }
-
-  if (state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS) {
-    finishTurn(currentApp);
-    return;
-  }
-
-  const cardIndex = chooseEnemyOffensiveCard(currentApp);
-
-  if (cardIndex === -1) {
-    finishTurn(currentApp);
-    return;
-  }
-
-  playOffensiveCard(currentApp, "enemy", cardIndex);
-}
-
-function queueEnemyTurnStep(currentApp) {
-  const { state } = currentApp;
-
-  if (
-    !state ||
-    state.isGameOver ||
-    state.currentTurn !== "enemy" ||
-    state.pendingDefense ||
-    state.pendingCoin ||
-    state.pendingStep ||
-    state.pinAttempt
-  ) {
-    return;
-  }
-
-  const enemyHasOffense = state.enemy.hand.some((card) => OFFENSIVE_TYPES.has(card.type));
-
-  if (state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS || !enemyHasOffense) {
-    queuePendingStep(
-      currentApp,
-      `Defending ${state.enemy.name}'s turn`,
-      enemyHasOffense
-        ? "Sequence done. End turn."
-        : "No offense left. End turn.",
-      [
-        {
-          label: "End Turn",
-          onClick: () => {
-            finishTurn(currentApp);
-          }
-        }
-      ]
-    );
-    return;
-  }
-
-  queuePendingStep(
-    currentApp,
-    `Defending ${state.enemy.name}'s turn`,
-    `Reveal slot ${state.sequence.nextSlot}.`,
-    [
-      {
-        label: `Reveal Slot ${state.sequence.nextSlot}`,
-        onClick: () => {
-          runEnemyTurnStep(currentApp);
-        }
+  if (app.state.phase === Engine.PHASES.TURN_END) {
+    scheduleCall(app, AI_STEP_DELAY, () => {
+      if (!app.state || app.state.match.over || app.state.phase !== Engine.PHASES.TURN_END) {
+        return;
       }
-    ]
-  );
-}
 
-function queuePendingStep(currentApp, title, text, buttons) {
-  currentApp.state.pendingStep = {
-    title,
-    text,
-    buttons: buttons.map((button) => {
-      return {
-        label: button.label,
-        tone: button.tone,
-        disabled: button.disabled,
-        onClick: () => {
-          currentApp.state.pendingStep = null;
-          button.onClick();
-        }
-      };
-    })
-  };
-  renderApp(currentApp);
-}
-
-function setActionFeedback(currentApp, message) {
-  if (!currentApp?.state) {
-    return;
-  }
-
-  currentApp.state.actionFeedback = message || "";
-}
-
-function chooseEnemyOffensiveCard(currentApp) {
-  const enemy = currentApp.state.enemy;
-  const defender = currentApp.state.player;
-  const slot = currentApp.state.sequence.nextSlot;
-  const offensiveEntries = enemy.hand
-    .map((card, index) => ({ card, index }))
-    .filter((entry) => OFFENSIVE_TYPES.has(entry.card.type));
-
-  if (offensiveEntries.length === 0) {
-    return -1;
-  }
-
-  const fitting = offensiveEntries.filter((entry) => doesCardFitSlot(entry.card, slot));
-  const pool = fitting.length > 0 ? fitting : offensiveEntries;
-  const pinSummary = getPinfallSummary(defender);
-  const failRatio = pinSummary.total > 0 ? pinSummary.fail / pinSummary.total : 0;
-
-  const scored = pool.map((entry) => {
-    return {
-      ...entry,
-      score: scoreEnemyCard(entry.card, defender.accumulatedDamage, failRatio, slot)
-    };
-  });
-
-  scored.sort((left, right) => right.score - left.score);
-  return scored[0].index;
-}
-
-function scoreEnemyCard(card, defenderDamage, failRatio, slot) {
-  let score = Math.random() * 2;
-
-  if (card.type === "attack") {
-    score += 18 + (card.damage || 0);
-  }
-
-  if (card.type === "taunt") {
-    score += 12 + countPinfallPressure(card, "Fail") * 4 + countPinfallPressure(card, "Kickout") * 3;
-  }
-
-  if (card.type === "pin") {
-    score += defenderDamage * 0.5 + failRatio * 20 + (slot === 1 ? 2 : 0);
-  }
-
-  if (card.immediatePin && defenderDamage >= 14) {
-    score += 10;
-  }
-
-  if (hasEffectType(card, "stun")) {
-    score += 6;
-  }
-
-  return score;
-}
-
-function playOffensiveCard(currentApp, attackerKey, handIndex) {
-  const { state } = currentApp;
-
-  if (
-    !state ||
-    state.isGameOver ||
-    state.pendingDefense ||
-    state.pendingCoin ||
-    state.pinAttempt ||
-    state.currentTurn !== attackerKey ||
-    state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS
-  ) {
-    return;
-  }
-
-  const attacker = state[attackerKey];
-  const sourceRect = getPlaySourceRect(attackerKey, handIndex, { width: 132, height: 92 });
-  const [card] = attacker.hand.splice(handIndex, 1);
-
-  if (!card || !OFFENSIVE_TYPES.has(card.type)) {
-    return;
-  }
-
-  setActionFeedback(currentApp, "");
-  attacker.discardPile.push(card);
-
-  const defenderKey = getOpponentKey(attackerKey);
-  const slot = state.sequence.nextSlot;
-  const fitsSlot = doesCardFitSlot(card, slot);
-  const slotEntry = state.sequence.slots[slot - 1];
-  slotEntry.cardName = card.name;
-  slotEntry.type = card.type;
-  slotEntry.fit = fitsSlot;
-  slotEntry.result = "Resolving";
-  slotEntry.offense = createSequenceCardState(attackerKey, card, "Resolving", { fit: fitsSlot });
-  slotEntry.defense = null;
-  state.sequence.totalPlayed += 1;
-  state.sequence.nextSlot += 1;
-
-  addMatchLog(
-    currentApp,
-    `${attacker.name} plays ${card.name} in slot ${slot}${fitsSlot ? "." : " off-slot."}`
-  );
-
-  state.statusMessage = `${attacker.name} resolves ${card.name}.`;
-  renderApp(currentApp);
-  queueCardMotionEffect(sourceRect, slot, attackerKey, card, "Played");
-
-  const context = {
-    attackerKey,
-    defenderKey,
-    card,
-    slot,
-    fitsSlot,
-    onResolved: (landed, resultLabel) => {
-      finalizeSequenceSlot(currentApp, slot, landed, card, fitsSlot, resultLabel);
-      resumeTurnFlow(currentApp);
-    }
-  };
-
-  if (card.type === "pin") {
-    startPinDefense(currentApp, {
-      attackerKey,
-      defenderKey,
-      pinName: card.name,
-      sourceCard: card,
-      slot,
-      fitsSlot,
-      onResolved: (landed) => {
-        context.onResolved(landed, landed ? "Pin lands" : "Pin stopped");
-      }
+      Engine.continueAfterTurnEnd(app.state);
+      refreshApp();
     });
     return;
   }
 
-  resolveManeuverDefense(currentApp, context);
-}
-
-function resolveManeuverDefense(currentApp, context) {
-  const defenseOptions = getDefenseOptions(currentApp.state[context.defenderKey]);
-
-  if (defenseOptions.length === 0) {
-    setActionFeedback(currentApp, "No defense: the move gets through.");
-    resolveOffensiveCardWithoutDefense(currentApp, context);
+  if (app.state.phase === Engine.PHASES.PINFALL_DRAW) {
     return;
   }
 
-  if (context.defenderKey === "enemy") {
-    const aiChoice = chooseAIDefense(currentApp, context, defenseOptions);
-
-    if (!aiChoice) {
-      setActionFeedback(currentApp, "No defense: the move gets through.");
-      resolveOffensiveCardWithoutDefense(currentApp, context);
-      return;
-    }
-
-    queuePendingStep(
-      currentApp,
-      `${currentApp.state.enemy.name} defending`,
-      `${currentApp.state.enemy.name} reaches for a defense.`,
-      [
-        {
-          label: "Reveal Defense",
-          onClick: () => {
-            commitAIDefense(currentApp, context, aiChoice);
-          }
-        }
-      ]
-    );
+  if (app.state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION && app.state.turn.attackerKey === "enemy") {
+    scheduleCall(app, AI_STEP_DELAY, runEnemyOffenseStep);
     return;
   }
 
-  currentApp.state.pendingDefense = { kind: "maneuver", context };
-  currentApp.state.statusMessage = `${currentApp.state.player.name} can defend ${context.card.name}.`;
-  renderApp(currentApp);
-}
-
-function startPinDefense(currentApp, pinContext) {
-  const attacker = currentApp.state[pinContext.attackerKey];
-  const defender = currentApp.state[pinContext.defenderKey];
-  const defenseOptions = getDefenseOptions(defender);
-
-  currentApp.state.statusMessage = `${attacker.name} attempts ${pinContext.pinName}!`;
-  currentApp.state.pinLogLines = [`${attacker.name} goes for ${pinContext.pinName}.`];
-  renderApp(currentApp);
-
-  if (defenseOptions.length === 0) {
-    setActionFeedback(currentApp, "No defense: the pin goes to the count.");
-    startPinfallAttempt(currentApp, pinContext);
+  if (!app.state.resolution || app.state.resolution.defenderKey !== "enemy") {
     return;
   }
-
-  const context = {
-    attackerKey: pinContext.attackerKey,
-    defenderKey: pinContext.defenderKey,
-    slot: pinContext.slot ?? null,
-    card: {
-      name: pinContext.pinName,
-      type: "pin",
-      slot: pinContext.sourceCard.slot
-    },
-    fitsSlot: pinContext.fitsSlot ?? true,
-    pinContext
-  };
-
-  if (pinContext.defenderKey === "enemy") {
-    const aiChoice = chooseAIDefense(currentApp, context, defenseOptions);
-
-    if (!aiChoice) {
-      setActionFeedback(currentApp, "No defense: the pin goes to the count.");
-      startPinfallAttempt(currentApp, pinContext);
-      return;
-    }
-
-    queuePendingStep(
-      currentApp,
-      `${defender.name} defending`,
-      `${defender.name} braces for the pin.`,
-      [
-        {
-          label: "Reveal Defense",
-          onClick: () => {
-            commitAIDefense(currentApp, context, aiChoice);
-          }
-        }
-      ]
-    );
-    return;
-  }
-
-  currentApp.state.pendingDefense = { kind: "pin", context };
-  currentApp.state.statusMessage = `${defender.name} can dodge or reverse the pin.`;
-  renderApp(currentApp);
-}
-
-function getDefenseOptions(wrestler) {
-  return wrestler.hand
-    .map((card, handIndex) => ({ card, handIndex }))
-    .filter((entry) => DEFENSIVE_TYPES.has(entry.card.type));
-}
-
-function chooseAIDefense(currentApp, context, defenseOptions) {
-  const threat =
-    (context.card.damage || 0) +
-    countPinfallPressure(context.card, "Fail") * 3 +
-    (hasEffectType(context.card, "stun") ? 4 : 0) +
-    (context.card.type === "pin" ? 8 : 0);
-
-  let chanceToDefend = 0.35;
-
-  if (context.card.type === "pin") {
-    chanceToDefend = 0.95;
-  } else if (context.card.type === "taunt") {
-    chanceToDefend = 0.55;
-  } else if (threat >= 10) {
-    chanceToDefend = 0.8;
-  } else if (threat >= 7) {
-    chanceToDefend = 0.65;
-  }
-
-  if (Math.random() > chanceToDefend) {
-    return null;
-  }
-
-  const reversals = defenseOptions.filter((entry) => entry.card.type === "reversal");
-  const dodges = defenseOptions.filter((entry) => entry.card.type === "dodge");
-
-  if (context.card.type === "pin" && reversals.length > 0 && Math.random() > 0.4) {
-    return pickRandom(reversals);
-  }
-
-  if (context.card.type === "attack" && reversals.length > 0 && (context.card.damage || 0) >= 8) {
-    return pickRandom(reversals);
-  }
-
-  if (dodges.length > 0) {
-    return pickRandom(dodges);
-  }
-
-  return reversals[0] || null;
-}
-
-function commitAIDefense(currentApp, context, aiChoice) {
-  const defender = currentApp.state[context.defenderKey];
-  const sourceRect = getPlaySourceRect(context.defenderKey, aiChoice.handIndex, {
-    width: 132,
-    height: 92
-  });
-  const [defenseCard] = defender.hand.splice(aiChoice.handIndex, 1);
-
-  if (!defenseCard) {
-    if (context.pinContext) {
-      startPinfallAttempt(currentApp, context.pinContext);
-      return;
-    }
-
-    resolveOffensiveCardWithoutDefense(currentApp, context);
-    return;
-  }
-
-  defender.discardPile.push(defenseCard);
-  setSequenceDefenseCard(currentApp.state, context.slot, context.defenderKey, defenseCard, "Readied");
-
-  const aiCall = pickRandom(COIN_SIDES);
-
-  currentApp.state.statusMessage = `${defender.name} reveals ${defenseCard.name}.`;
-  currentApp.state.pendingCoin = {
-    phase: "reveal",
-    actorKey: context.defenderKey,
-    context,
-    defenseCard,
-    call: aiCall
-  };
-  renderApp(currentApp);
-  queueCardMotionEffect(sourceRect, context.slot, context.defenderKey, defenseCard, "Defense");
-}
-
-function resolveDefenseAttempt(currentApp, context, defenseCard, call) {
-  const coinMode = getCoinMode(currentApp, context);
-  const flips = flipCoins(coinMode === "normal" ? 1 : 2);
-  const success = evaluateCoinResult(flips, call, coinMode);
-  const defender = currentApp.state[context.defenderKey];
-  const flipResult = flips.join(" / ");
-
-  animateCoinFlipEffect(call, flips);
-
-  addMatchLog(
-    currentApp,
-    `${defender.name} calls ${call} with ${defenseCard.name}. Coins: ${flipResult}.`
-  );
-
-  if (success) {
-    setActionFeedback(currentApp, `Passed: ${defenseCard.name} hits on ${flipResult}.`);
-    handleSuccessfulDefense(currentApp, context, defenseCard, coinMode);
-    return;
-  }
-
-  setActionFeedback(currentApp, `Failed: ${defenseCard.name} misses on ${flipResult}.`);
-  handleFailedDefense(currentApp, context, defenseCard, coinMode);
-}
-
-function getCoinMode(currentApp, context) {
-  const attacker = currentApp.state[context.attackerKey];
-  const defender = currentApp.state[context.defenderKey];
-  const attackDisadvantaged = !context.fitsSlot || attacker.stunned;
-  const defenseDisadvantaged = defender.stunned;
-
-  if (attackDisadvantaged && defenseDisadvantaged) {
-    return "normal";
-  }
-
-  if (defenseDisadvantaged) {
-    return "hard";
-  }
-
-  if (attackDisadvantaged) {
-    return "easy";
-  }
-
-  return "normal";
-}
-
-function flipCoins(count) {
-  return Array.from({ length: count }, () => pickRandom(COIN_SIDES));
-}
-
-function evaluateCoinResult(flips, call, coinMode) {
-  if (coinMode === "easy") {
-    return flips.some((flip) => flip === call);
-  }
-
-  if (coinMode === "hard") {
-    return flips.every((flip) => flip === call);
-  }
-
-  return flips[0] === call;
-}
-
-function handleSuccessfulDefense(currentApp, context, defenseCard, coinMode) {
-  const attacker = currentApp.state[context.attackerKey];
-  const defender = currentApp.state[context.defenderKey];
-
-  if (context.card.type === "pin") {
-    if (defenseCard.type === "dodge") {
-      setSequenceDefenseResult(currentApp.state, context.slot, "Dodged");
-      addMatchLog(
-        currentApp,
-        `${defender.name} dodges ${context.card.name} (${coinModeLabel(coinMode)}).`
-      );
-      context.pinContext.onResolved(false);
-      return;
-    }
-
-    addMatchLog(
-      currentApp,
-      `${defender.name} reverses ${context.card.name} (${coinModeLabel(coinMode)}).`
-    );
-    setSequenceDefenseResult(currentApp.state, context.slot, "Reversal");
-    startPinDefense(currentApp, {
-      attackerKey: context.defenderKey,
-      defenderKey: context.attackerKey,
-      pinName: `${context.card.name} Reversal`,
-      sourceCard: context.pinContext.sourceCard,
-      fitsSlot: true,
-      onResolved: () => {
-        context.pinContext.onResolved(false);
-      }
-    });
-    return;
-  }
-
-  if (context.card.type === "taunt") {
-    setSequenceDefenseResult(currentApp.state, context.slot, "Stopped");
-    addMatchLog(
-      currentApp,
-      `${defender.name} shuts down ${attacker.name}'s ${context.card.name} (${coinModeLabel(
-        coinMode
-      )}).`
-    );
-    context.onResolved(false, "Blocked");
-    return;
-  }
-
-  if (defenseCard.type === "dodge") {
-    const damageResult = applyDamage(currentApp, context.attackerKey, defenseCard.missDamage || 0);
-    setSequenceDefenseResult(currentApp.state, context.slot, "Dodge");
-
-    addMatchLog(
-      currentApp,
-      `${defender.name} dodges ${context.card.name}. ${attacker.name} takes ${defenseCard.missDamage || 0} miss damage.`
-    );
-    logDamageThresholds(currentApp, context.attackerKey, damageResult.failCardsAdded);
-    context.onResolved(false, "Dodged");
-    return;
-  }
-
-  const reversalResult = applyDamage(
-    currentApp,
-    context.attackerKey,
-    defenseCard.reversalDamage || 0
-  );
-  setSequenceDefenseResult(currentApp.state, context.slot, "Reversal");
-
-  addMatchLog(
-    currentApp,
-    `${defender.name} reverses ${context.card.name}. ${attacker.name} takes ${defenseCard.reversalDamage || 0} reversal damage.`
-  );
-  logDamageThresholds(currentApp, context.attackerKey, reversalResult.failCardsAdded);
-  context.onResolved(false, "Reversed");
-}
-
-function handleFailedDefense(currentApp, context, defenseCard, coinMode) {
-  const defender = currentApp.state[context.defenderKey];
-  setSequenceDefenseResult(currentApp.state, context.slot, "Missed");
-
-  addMatchLog(
-    currentApp,
-    `${defender.name}'s ${defenseCard.name} fails (${coinModeLabel(coinMode)}).`
-  );
-
-  if (context.card.type === "pin") {
-    startPinfallAttempt(currentApp, context.pinContext);
-    return;
-  }
-
-  resolveOffensiveCardWithoutDefense(currentApp, context);
-}
-
-function resolveOffensiveCardWithoutDefense(currentApp, context) {
-  if (context.card.type === "attack") {
-    resolveAttackHit(currentApp, context);
-    return;
-  }
-
-  if (context.card.type === "taunt") {
-    resolveTauntHit(currentApp, context);
-  }
-}
-
-function resolveAttackHit(currentApp, context) {
-  const attacker = currentApp.state[context.attackerKey];
-  const defender = currentApp.state[context.defenderKey];
-  const damageResult = applyDamage(currentApp, context.defenderKey, context.card.damage || 0);
-
-  addMatchLog(
-    currentApp,
-    `${attacker.name} lands ${context.card.name} for ${context.card.damage} damage on ${defender.name}.`
-  );
-  logDamageThresholds(currentApp, context.defenderKey, damageResult.failCardsAdded);
-  logEffectMessages(currentApp, applyCardEffects(currentApp, context.attackerKey, context.defenderKey, context.card));
-
-  if (context.card.immediatePin) {
-    addMatchLog(currentApp, `${attacker.name} can roll straight into a pin off ${context.card.name}.`);
-    finalizeSequenceSlot(currentApp, context.slot, true, context.card, context.fitsSlot, "Landed");
-    startPinDefense(currentApp, {
-      attackerKey: context.attackerKey,
-      defenderKey: context.defenderKey,
-      pinName: `${context.card.name} Cover`,
-      sourceCard: context.card,
-      slot: context.slot,
-      fitsSlot: true,
-      onResolved: () => {
-        resumeTurnFlow(currentApp);
-      }
-    });
-    return;
-  }
-
-  context.onResolved(true, "Landed");
-}
-
-function resolveTauntHit(currentApp, context) {
-  const attacker = currentApp.state[context.attackerKey];
-  const defender = currentApp.state[context.defenderKey];
-
-  addMatchLog(currentApp, `${attacker.name}'s ${context.card.name} rattles ${defender.name}.`);
-  logEffectMessages(currentApp, applyCardEffects(currentApp, context.attackerKey, context.defenderKey, context.card));
-  context.onResolved(true, "Taunt");
-}
-
-function startPinfallAttempt(currentApp, pinContext) {
-  currentApp.state.pinAttempt = {
-    attackerKey: pinContext.attackerKey,
-    defenderKey: pinContext.defenderKey,
-    slot: pinContext.slot ?? null,
-    pinName: pinContext.pinName,
-    drawnCards: [],
-    pendingOutcome: null,
-    onResolved: pinContext.onResolved
-  };
-
-  currentApp.state.pinLogLines = [
-    `${currentApp.state[pinContext.attackerKey].name} uses ${pinContext.pinName}.`,
-    `${currentApp.state[pinContext.defenderKey].name} draws ${PIN_DRAW_COUNT} from the pinfall deck.`
-  ];
-  addMatchLogLines(currentApp, currentApp.state.pinLogLines);
-  currentApp.state.statusMessage = `${currentApp.state[pinContext.defenderKey].name} is fighting the pin.`;
-  renderApp(currentApp);
-}
-
-function resolveNextPinDraw(currentApp) {
-  const attempt = currentApp.state.pinAttempt;
-
-  if (!attempt || currentApp.state.isGameOver) {
-    return;
-  }
-
-  const defender = currentApp.state[attempt.defenderKey];
-  const drawnCard = defender.pinfallDeck.pop();
-
-  attempt.drawnCards.push(drawnCard);
-  addMatchLog(currentApp, `Count ${attempt.drawnCards.length}: ${drawnCard}`);
-  currentApp.state.pinLogLines = buildPinLogLines(currentApp, attempt);
-  currentApp.state.statusMessage = `${defender.name} reveals pinfall card ${attempt.drawnCards.length}.`;
-  renderApp(currentApp);
-  animatePinDrawEffect(attempt.defenderKey, drawnCard, attempt.drawnCards.length);
-
-  if (drawnCard === "Kickout") {
-    setActionFeedback(
-      currentApp,
-      `Kickout revealed on ${attempt.drawnCards.length}: the pin is broken.`
-    );
-    attempt.pendingOutcome = "kickout";
-    renderApp(currentApp);
-    return;
-  }
-
-  setActionFeedback(
-    currentApp,
-    `Fail revealed on ${attempt.drawnCards.length}: the count continues.`
-  );
-
-  if (attempt.drawnCards.length >= PIN_DRAW_COUNT) {
-    attempt.pendingOutcome = "fall";
-  }
-
-  renderApp(currentApp);
-}
-
-function buildPinLogLines(currentApp, attempt) {
-  const lines = [`${currentApp.state[attempt.attackerKey].name} uses ${attempt.pinName}.`];
-
-  attempt.drawnCards.forEach((card, index) => {
-    lines.push(`Count ${index + 1}: ${card}`);
-  });
-
-  if (attempt.drawnCards.includes("Kickout")) {
-    lines.push(`Kickout at ${attempt.drawnCards.length}.`);
-  }
-
-  return lines;
-}
-
-function finishFailedPin(currentApp) {
-  const attempt = currentApp.state.pinAttempt;
-
-  if (!attempt) {
-    return;
-  }
-
-  const defender = currentApp.state[attempt.defenderKey];
-
-  defender.pinfallDeck.push(...attempt.drawnCards);
-  shuffleArray(defender.pinfallDeck);
-
-  addMatchLog(currentApp, `${defender.name} kicks out and the drawn pinfall cards shuffle back in.`);
-  currentApp.state.pinAttempt = null;
-  setActionFeedback(currentApp, `${defender.name} kicks out. Pin failed.`);
-  currentApp.state.statusMessage = `${defender.name} survives the pin.`;
-  currentApp.state.pinLogLines = [`${defender.name} kicks out at ${attempt.drawnCards.length}.`];
-  renderApp(currentApp);
-  attempt.onResolved(true);
-}
-
-function finishSuccessfulPin(currentApp) {
-  const attempt = currentApp.state.pinAttempt;
-
-  if (!attempt) {
-    return;
-  }
-
-  const attacker = currentApp.state[attempt.attackerKey];
-
-  currentApp.state.pinAttempt = null;
-  currentApp.state.pinLogLines = ["Three straight Fail cards. The pin holds."];
-  endMatch(
-    currentApp,
-    attempt.attackerKey === "player" ? "win" : "lose",
-    `${attacker.name} gets the three-count with ${attempt.pinName}!`
-  );
-}
-
-function applyDamage(currentApp, wrestlerKey, amount) {
-  const wrestler = currentApp.state[wrestlerKey];
-  wrestler.accumulatedDamage += amount;
-  return { failCardsAdded: addFailCardsFromDamage(wrestler) };
-}
-
-function addFailCardsFromDamage(wrestler) {
-  const failCardsEarned = Math.floor(wrestler.accumulatedDamage / DAMAGE_PER_FAIL);
-  const failCardsToAdd = failCardsEarned - wrestler.failCardsFromDamage;
-
-  if (failCardsToAdd <= 0) {
-    return 0;
-  }
-
-  for (let index = 0; index < failCardsToAdd; index += 1) {
-    wrestler.pinfallDeck.push("Fail");
-  }
-
-  wrestler.failCardsFromDamage = failCardsEarned;
-  shuffleArray(wrestler.pinfallDeck);
-  return failCardsToAdd;
-}
-
-function logDamageThresholds(currentApp, wrestlerKey, failCardsAdded) {
-  if (failCardsAdded <= 0) {
-    return;
-  }
-
-  const wrestler = currentApp.state[wrestlerKey];
-
-  addMatchLog(currentApp, `${wrestler.name} reaches ${wrestler.accumulatedDamage} total damage.`);
-  addMatchLog(
-    currentApp,
-    `${failCardsAdded} ${pluralize("Fail card", failCardsAdded)} added from the damage threshold.`
-  );
-}
-
-function applyCardEffects(currentApp, ownerKey, opponentKey, card) {
-  const messages = [];
-
-  (card.effects || []).forEach((effect) => {
-    if (effect.type === "pinfall") {
-      const receiverKey = effect.target === "self" ? ownerKey : opponentKey;
-      addCardsToPinfallDeck(currentApp.state[receiverKey], effect.card, effect.amount);
-      messages.push(
-        `${currentApp.state[receiverKey].name} gains ${effect.amount} ${effect.card} ${pluralize(
-          "card",
-          effect.amount
-        )} in the pinfall deck.`
-      );
-      return;
-    }
-
-    if (effect.type === "stun") {
-      const receiverKey = effect.target === "self" ? ownerKey : opponentKey;
-      const target = currentApp.state[receiverKey];
-      const refreshed = target.stunned;
-      target.stunned = true;
-      messages.push(
-        refreshed
-          ? `${target.name}'s stun is refreshed.`
-          : `${target.name} is stunned until the end of the next turn.`
-      );
-    }
-  });
-
-  return messages;
-}
-
-function addCardsToPinfallDeck(wrestler, cardType, amount) {
-  for (let index = 0; index < amount; index += 1) {
-    wrestler.pinfallDeck.push(cardType);
-  }
-
-  shuffleArray(wrestler.pinfallDeck);
-}
-
-function logEffectMessages(currentApp, messages) {
-  messages.forEach((message) => addMatchLog(currentApp, message));
-}
-
-function createSequenceCardState(ownerKey, card, result, options = {}) {
-  return {
-    ownerKey,
-    cardName: card.name,
-    type: card.type,
-    result,
-    fit: options.fit ?? true,
-    value: formatCardPrimaryValue(card),
-    label: formatCardPrimaryLabel(card)
-  };
-}
-
-function getSequenceSlotEntry(state, slot) {
-  if (!slot || !state?.sequence) {
-    return null;
-  }
-
-  return state.sequence.slots[slot - 1] || null;
-}
-
-function setSequenceDefenseCard(state, slot, ownerKey, card, result = "Readied") {
-  const slotEntry = getSequenceSlotEntry(state, slot);
-
-  if (!slotEntry) {
-    return;
-  }
-
-  slotEntry.defense = createSequenceCardState(ownerKey, card, result);
-}
-
-function setSequenceDefenseResult(state, slot, result) {
-  const slotEntry = getSequenceSlotEntry(state, slot);
-
-  if (!slotEntry || !slotEntry.defense) {
-    return;
-  }
-
-  slotEntry.defense.result = result;
-}
-
-function finalizeSequenceSlot(currentApp, slot, landed, card, fitsSlot, resultLabel) {
-  const slotEntry = currentApp.state.sequence.slots[slot - 1];
-
-  slotEntry.cardName = card.name;
-  slotEntry.type = card.type;
-  slotEntry.fit = fitsSlot;
-  slotEntry.landed = landed;
-  slotEntry.result = resultLabel;
-  slotEntry.offense = createSequenceCardState(
-    slotEntry.offense?.ownerKey || currentApp.state.currentTurn,
-    card,
-    resultLabel,
-    { fit: fitsSlot }
-  );
-
-  if (landed) {
-    currentApp.state.sequence.successfulSlots += 1;
-  } else {
-    currentApp.state.sequence.comboEligible = false;
-  }
-
-  if (!fitsSlot) {
-    currentApp.state.sequence.comboEligible = false;
-  }
-}
-
-function resumeTurnFlow(currentApp) {
-  if (!currentApp.state || currentApp.state.isGameOver) {
-    renderApp(currentApp);
-    return;
-  }
-
-  renderApp(currentApp);
-
-  if (currentApp.state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS) {
-    if (currentApp.state.currentTurn === "enemy") {
-      queuePendingStep(
-        currentApp,
-        `Defending ${currentApp.state.enemy.name}'s turn`,
-        "Sequence complete. End the turn to continue.",
-        [
-          {
-            label: "End Turn",
-            onClick: () => {
-              finishTurn(currentApp);
-            }
-          }
-        ]
-      );
-    }
-    return;
-  }
-
-  if (currentApp.state.currentTurn === "enemy") {
-    queueEnemyTurnStep(currentApp);
-  }
-}
-
-function finishTurn(currentApp) {
-  const { state } = currentApp;
-
-  if (!state || state.isGameOver || state.pendingDefense || state.pendingCoin || state.pinAttempt) {
-    return;
-  }
-
-  const attackerKey = state.currentTurn;
-  const defenderKey = getOpponentKey(attackerKey);
-  const attacker = state[attackerKey];
-  const defender = state[defenderKey];
 
   if (
-    state.sequence.comboEligible &&
-    state.sequence.totalPlayed === MAX_SEQUENCE_SLOTS &&
-    state.sequence.successfulSlots === MAX_SEQUENCE_SLOTS
+    (app.state.phase === Engine.PHASES.RESOLVE_ATTACK ||
+      app.state.phase === Engine.PHASES.PIN_DEFENCE_DECISION) &&
+    app.state.resolution.awaitingDefenceChoice
   ) {
-    addCardsToPinfallDeck(defender, "Fail", 1);
-    addMatchLog(currentApp, `${attacker.name} completes a combo. ${defender.name} gains 1 Fail card.`);
+    scheduleCall(app, AI_STEP_DELAY, runEnemyDefenseStep);
   }
+}
 
-  if (attacker.stunned) {
-    attacker.stunned = false;
-    addMatchLog(currentApp, `${attacker.name} shakes off the stun at end of turn.`);
-  }
-
-  if (attacker.exhaustionPendingLoss) {
-    endMatch(
-      currentApp,
-      attackerKey === "player" ? "lose" : "win",
-      `${attacker.name} runs out of maneuver cards and loses by deck exhaustion.`
-    );
+function runEnemyOffenseStep() {
+  if (!app.state || app.state.match.over || app.state.turn.attackerKey !== "enemy") {
     return;
   }
 
-  addMatchLog(currentApp, `${attacker.name}'s turn ends.`);
-  state.turnNumber += 1;
-  beginTurn(currentApp, defenderKey);
-}
+  const decision = Engine.chooseAiOffence(app.state, "enemy");
 
-function getOpponentKey(wrestlerKey) {
-  return wrestlerKey === "player" ? "enemy" : "player";
-}
-
-function doesCardFitSlot(card, slot) {
-  return card.slot === "any" || card.slot === slot;
-}
-
-function countPinfallPressure(card, cardType) {
-  return (card.effects || []).reduce((total, effect) => {
-    if (effect.type === "pinfall" && effect.card === cardType) {
-      return total + effect.amount;
-    }
-
-    return total;
-  }, 0);
-}
-
-function hasEffectType(card, effectType) {
-  return (card.effects || []).some((effect) => effect.type === effectType);
-}
-
-function pickRandom(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-function shuffleArray(items) {
-  for (let index = items.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  if (decision.type === "stop") {
+    Engine.stopTurn(app.state);
+    refreshApp();
+    return;
   }
 
-  return items;
+  Engine.playOffensiveCard(app.state, decision.handIndex, "enemy");
+  refreshApp();
+}
+
+function runEnemyDefenseStep() {
+  if (
+    !app.state ||
+    app.state.match.over ||
+    !app.state.resolution ||
+    app.state.resolution.defenderKey !== "enemy" ||
+    !app.state.resolution.awaitingDefenceChoice
+  ) {
+    return;
+  }
+
+  const decision = Engine.chooseAiDefence(app.state);
+
+  if (decision.type === "none") {
+    Engine.chooseNoDefence(app.state);
+    refreshApp();
+    return;
+  }
+
+  Engine.prepareDefence(app.state, decision.handIndex);
+  renderApp(app);
+
+  scheduleCall(app, AI_STEP_DELAY, () => {
+    if (!app.state || !app.state.resolution || !app.state.resolution.awaitingCoinCall) {
+      return;
+    }
+
+    Engine.callDefenceCoin(app.state, decision.call);
+    refreshApp();
+  });
 }
 
 function scheduleCall(currentApp, delay, callback) {
@@ -1690,41 +403,8 @@ function scheduleCall(currentApp, delay, callback) {
 }
 
 function clearScheduledCalls(currentApp) {
-  currentApp.timers.forEach((timeoutId) => {
-    window.clearTimeout(timeoutId);
-  });
-
+  currentApp.timers.forEach((timeoutId) => window.clearTimeout(timeoutId));
   currentApp.timers.clear();
-}
-
-function addMatchLog(currentApp, message) {
-  if (!message) {
-    return;
-  }
-
-  currentApp.state.matchLog.push(message);
-  currentApp.state.shouldScrollLog = true;
-}
-
-function addMatchLogLines(currentApp, messages) {
-  messages.forEach((message) => addMatchLog(currentApp, message));
-}
-
-function pluralize(word, count) {
-  return count === 1 ? word : `${word}s`;
-}
-
-function endMatch(currentApp, outcome, message) {
-  clearScheduledCalls(currentApp);
-
-  currentApp.state.isGameOver = true;
-  currentApp.state.outcome = outcome;
-  currentApp.state.pendingDefense = null;
-  currentApp.state.pendingCoin = null;
-  currentApp.state.pinAttempt = null;
-  currentApp.state.statusMessage = message;
-  addMatchLog(currentApp, message);
-  renderApp(currentApp);
 }
 
 function renderApp(currentApp) {
@@ -1732,8 +412,7 @@ function renderApp(currentApp) {
     return;
   }
 
-  renderUiState(currentApp.state);
-  renderDirector(currentApp);
+  renderDirector(currentApp.state);
   renderSequence(currentApp.state);
   renderActionPanel(currentApp.state);
   renderWrestlerPanel(currentApp.state, "player", dom.wrestlerPanels.player);
@@ -1743,298 +422,193 @@ function renderApp(currentApp) {
   renderMatchLog(currentApp.state);
 }
 
-function renderUiState(state) {
-  if (!dom.appContent) {
-    return;
-  }
+function renderDirector(state) {
+  const attacker = state.match.over ? null : Engine.getCurrentAttacker(state);
+  const slotLabel = state.match.over
+    ? "Match complete"
+    : state.phase === Engine.PHASES.PINFALL_DRAW
+      ? "Pinfall draw"
+      : state.phase === Engine.PHASES.TURN_END
+        ? "Turn ended"
+      : `Slot ${Math.min(state.turn.nextSlot, 3)} of 3`;
 
-  const mode = getUiMode(state);
-  dom.appContent.dataset.mode = mode;
-  dom.actionPanel?.setAttribute("data-mode", mode);
-  dom.handFilters.hidden = mode !== "offense";
-}
-
-function getUiMode(state) {
-  if (!state) {
-    return "idle";
-  }
-
-  if (state.isGameOver) {
-    return "game-over";
-  }
-
-  if (state.pendingStep) {
-    return "step";
-  }
-
-  if (state.pendingDefense?.context.defenderKey === "player") {
-    return "defense";
-  }
-
-  if (state.pendingCoin && state.pendingCoin.actorKey === "player" && state.pendingCoin.phase === "call") {
-    return "coin-call";
-  }
-
-  if (state.pendingCoin) {
-    return "coin-reveal";
-  }
-
-  if (state.pinAttempt) {
-    return "pin";
-  }
-
-  if (state.currentTurn === "player" && state.sequence.totalPlayed < MAX_SEQUENCE_SLOTS) {
-    return "offense";
-  }
-
-  if (canPlayerEndTurn(state)) {
-    return "turn-end";
-  }
-
-  return "wait";
-}
-
-function renderDirector(currentApp) {
-  const { state } = currentApp;
-
-  if (!state) {
-    return;
-  }
-
-  const attackerKey = state.currentTurn;
-  const attacker = state[attackerKey];
-  const slotLabel =
-    state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS
-      ? "Sequence done"
-      : `Slot ${state.sequence.nextSlot} of ${MAX_SEQUENCE_SLOTS}`;
-
-  dom.directorTitle.textContent = `${attacker.name} / ${slotLabel}`;
+  dom.directorTitle.textContent = attacker ? `${attacker.name} / ${slotLabel}` : "UnderCard / Match complete";
   dom.directorSubtitle.textContent = buildDirectorSubtitle(state);
   dom.directorPrimary.hidden = true;
-  dom.directorPrimary.textContent = "";
+  dom.directorPrimary.disabled = true;
   dom.directorPrimary.onclick = null;
-  dom.directorPrimary.disabled = false;
 
-  if (state.isGameOver) {
+  if (state.match.over) {
     dom.outcomeBanner.hidden = false;
-    dom.outcomeBanner.textContent = state.outcome === "win" ? "You win" : "You lose";
+    dom.outcomeBanner.textContent = state.match.winnerKey === "player" ? "You win" : "You lose";
     dom.outcomeBanner.className =
-      state.outcome === "win"
+      state.match.winnerKey === "player"
         ? "outcome-banner outcome-banner--win"
         : "outcome-banner outcome-banner--lose";
-  } else {
-    dom.outcomeBanner.hidden = true;
-    dom.outcomeBanner.className = "outcome-banner";
+    return;
   }
+
+  dom.outcomeBanner.hidden = true;
+  dom.outcomeBanner.className = "outcome-banner";
 }
 
 function buildDirectorSubtitle(state) {
-  if (state.isGameOver) {
-    return state.statusMessage || "Match over.";
+  if (state.match.over) {
+    return state.match.reason;
   }
 
-  if (state.pendingStep) {
-    return state.pendingStep.text || "Next step.";
+  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
+    const pinned = state.players[state.pinAttempt.defenderKey];
+    return `${pinned.name} draws pinfall cards one at a time.`;
   }
 
-  if (state.pendingCoin) {
-    return "Call it and flip.";
+  if (state.phase === Engine.PHASES.TURN_END) {
+    return state.status || lastLogLine(state);
   }
 
-  if (state.pendingDefense) {
-    return "Choose a response.";
+  if (state.phase === Engine.PHASES.RESOLVE_ATTACK && state.resolution?.awaitingDefenceChoice) {
+    return `${state.players[state.resolution.defenderKey].name} chooses dodge, reversal, or no defence.`;
   }
 
-  if (state.pinAttempt) {
-    return "Pin in progress.";
+  if (state.phase === Engine.PHASES.PIN_DEFENCE_DECISION && state.resolution?.awaitingDefenceChoice) {
+    return `${state.players[state.resolution.defenderKey].name} chooses how to answer the pin.`;
   }
 
-  if (state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS) {
-    return "End turn.";
+  if (state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION) {
+    return `${Engine.getCurrentAttacker(state).name} can play only into the next open slot.`;
   }
 
-  return "Play the next card.";
-}
-
-function buildDirectorPrimaryAction(state) {
-  if (state.isGameOver) {
-    return null;
-  }
-
-  if (state.pendingStep && state.pendingStep.buttons.length > 0) {
-    return state.pendingStep.buttons[0];
-  }
-
-  if (state.pendingCoin && state.pendingCoin.phase === "reveal") {
-    return {
-      label: "Flip Coins",
-      onClick: resolvePendingCoin
-    };
-  }
-
-  if (state.pinAttempt && !state.pinAttempt.pendingOutcome) {
-    return {
-      label: "Draw Next Pinfall Card",
-      onClick: () => resolveNextPinDraw(app)
-    };
-  }
-
-  if (canPlayerEndTurn(state)) {
-    return {
-      label: "End Turn",
-      onClick: () => finishTurn(app)
-    };
-  }
-
-  return null;
+  return state.status || lastLogLine(state);
 }
 
 function renderSequence(state) {
-  if (!dom.sequenceCombo) {
-    return;
-  }
+  const activeSlot = getActiveSlot(state);
+  const focusSlot = pickFocusSlot(state, activeSlot);
 
-  const activeSlot = getActiveSequenceSlot(state);
-  const focusSlot = pickSequenceFocusSlot(state, activeSlot);
-  const slotModels = state.sequence.slots.map((slotEntry) => buildSequenceSlotModel(state, slotEntry, activeSlot));
-  const focusModel = buildSequenceSlotModel(state, focusSlot, activeSlot);
-
-  dom.sequenceCombo.textContent = buildSequenceBanner(state, activeSlot);
+  dom.sequenceCombo.textContent = buildSequenceBanner(state);
   dom.sequenceSlots.replaceChildren();
 
   const track = document.createElement("div");
   track.className = "sequence-track";
-  slotModels.forEach((slotModel) => {
-    track.appendChild(buildSequenceTrackSlot(slotModel, activeSlot));
+
+  state.turn.slots.forEach((slotEntry) => {
+    track.appendChild(buildSequenceTrackSlot(buildSequenceSlotModel(state, slotEntry, activeSlot), activeSlot));
   });
 
   dom.sequenceSlots.appendChild(track);
-  dom.sequenceSlots.appendChild(buildSequenceFocusCard(state, focusModel, activeSlot));
+  dom.sequenceSlots.appendChild(buildSequenceFocusCard(buildSequenceSlotModel(state, focusSlot, activeSlot)));
 }
 
-function buildSequenceBanner(state, activeSlot) {
-  if (state.pinAttempt) {
-    return state.pinAttempt.pendingOutcome ? "Count resolved" : `Count ${state.pinAttempt.drawnCards.length} / ${PIN_DRAW_COUNT}`;
+function buildSequenceBanner(state) {
+  if (state.match.over) {
+    return "Match Over";
   }
 
-  if (state.pendingCoin) {
-    return state.pendingCoin.phase === "call" ? "Call the coin" : "Flip to resolve";
+  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
+    return `Pinfall ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`;
   }
 
-  if (state.pendingDefense?.context.slot) {
-    return `Defending slot ${state.pendingDefense.context.slot}`;
+  if (state.phase === Engine.PHASES.TURN_END) {
+    return "Turn ended";
   }
 
-  if (state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS) {
-    return "Sequence complete";
+  if (state.turn.comboAchieved) {
+    return "Combo success";
   }
 
-  if (!state.sequence.comboEligible) {
+  const played = state.turn.slots.filter((slot) => slot.card).length;
+  const comboBroken =
+    state.turn.playedPin ||
+    state.turn.slots.some((slot) => {
+      return slot.card && slot.result !== "Resolving" && !slot.countedForCombo;
+    });
+
+  if (comboBroken) {
     return "Combo broken";
   }
 
-  return activeSlot ? `Slot ${activeSlot} live` : `Combo ${state.sequence.successfulSlots} / ${MAX_SEQUENCE_SLOTS}`;
+  return `Combo live ${played} / 3`;
 }
 
-function pickSequenceFocusSlot(state, activeSlot) {
-  if (activeSlot) {
-    return getSequenceSlotEntry(state, activeSlot) || state.sequence.slots[0];
+function getActiveSlot(state) {
+  if (state.pinAttempt) {
+    return state.pinAttempt.slot;
   }
 
-  for (let index = state.sequence.slots.length - 1; index >= 0; index -= 1) {
-    const slotEntry = state.sequence.slots[index];
-    if (slotEntry.cardName || slotEntry.offense) {
-      return slotEntry;
+  if (state.resolution) {
+    return state.resolution.slot;
+  }
+
+  if (state.turn.nextSlot <= 3) {
+    return state.turn.nextSlot;
+  }
+
+  return 3;
+}
+
+function pickFocusSlot(state, activeSlot) {
+  if (activeSlot && state.turn.slots[activeSlot - 1]) {
+    return state.turn.slots[activeSlot - 1];
+  }
+
+  for (let index = state.turn.slots.length - 1; index >= 0; index -= 1) {
+    if (state.turn.slots[index].card) {
+      return state.turn.slots[index];
     }
   }
 
-  return state.sequence.slots[0];
+  return state.turn.slots[0];
 }
 
 function buildSequenceSlotModel(state, slotEntry, activeSlot) {
-  const liveCard = slotEntry.offense;
-  const isCurrent = activeSlot === slotEntry.slot && !state.isGameOver;
-  const responsePending =
-    (state.pendingDefense && state.pendingDefense.context.slot === slotEntry.slot) ||
-    (state.pendingCoin && state.pendingCoin.context.slot === slotEntry.slot);
+  const isCurrent = activeSlot === slotEntry.slot && !state.match.over;
 
-  if (slotEntry.cardName || liveCard) {
-    const cardState = liveCard || slotEntry.offense;
-    const resolved = Boolean(slotEntry.cardName);
+  if (slotEntry.card) {
+    const meta = [];
+
+    if (slotEntry.card.type === "pin") {
+      meta.push("Pin");
+    } else {
+      meta.push(slotEntry.onSlot ? "On-slot" : "Off-slot");
+    }
+
+    if (slotEntry.defence) {
+      meta.push(formatDefenceSummary(slotEntry.defence));
+    }
+
+    if (slotEntry.destination) {
+      meta.push(`To ${slotEntry.destination}`);
+    }
 
     return {
       slot: slotEntry.slot,
       current: isCurrent,
-      locked: false,
-      empty: false,
-      stateLabel: responsePending ? "Resolving" : resolved ? "Landed" : "Live",
-      title: slotEntry.cardName || cardState.cardName,
-      shortTitle: slotEntry.cardName || cardState.cardName,
-      type: capitalize(slotEntry.type || cardState?.type || ""),
-      value: cardState?.value || "",
-      label: cardState?.label || "",
-      meta: responsePending ? "Waiting on the counter." : resolved ? "" : cardState?.result || "",
-      result: resolved && slotEntry.result && slotEntry.result !== "Open" ? slotEntry.result : "",
+      title: slotEntry.card.name,
+      shortTitle: shortenCardName(slotEntry.card.name),
+      type: capitalize(slotEntry.card.type),
+      stateLabel: slotEntry.result,
+      meta: meta.join(" / "),
+      result: slotEntry.result,
       variant:
-        slotEntry.cardName && !slotEntry.fit
+        slotEntry.onSlot === false
           ? "offslot"
-          : slotEntry.landed
+          : slotEntry.countedForCombo || slotEntry.card.type === "pin"
             ? "success"
-            : slotEntry.cardName
-              ? "stopped"
-              : "live"
+            : slotEntry.result === "Resolving"
+              ? "live"
+              : "stopped"
     };
   }
 
-  if (slotEntry.slot > state.sequence.nextSlot) {
-    return {
-      slot: slotEntry.slot,
-        current: false,
-        locked: true,
-        empty: true,
-        stateLabel: "Locked",
-        title: "Locked",
-        shortTitle: "Locked",
-      type: "",
-      value: "",
-      label: "",
-      meta: "Awaiting previous slot",
-      result: "",
-      variant: "locked"
-    };
-  }
-
-  if (isCurrent) {
-    if (responsePending) {
-      return {
-        slot: slotEntry.slot,
-        current: true,
-        locked: false,
-        empty: true,
-        stateLabel: "Resolving",
-        title: "Resolving",
-        shortTitle: "Resolving",
-        type: "",
-        value: "",
-        label: "",
-        meta: "Waiting on the answer.",
-        result: "",
-        variant: "live"
-      };
-    }
-
+  if (slotEntry.slot === activeSlot) {
     return {
       slot: slotEntry.slot,
       current: true,
-      locked: false,
-      empty: true,
-      stateLabel: state.currentTurn === "player" ? "Your move" : "Stand by",
-      title: state.currentTurn === "player" ? "Choose card" : "Incoming",
-      shortTitle: state.currentTurn === "player" ? "Ready" : "Enemy",
+      title: state.turn.attackerKey === "player" ? "Choose card" : "Incoming",
+      shortTitle: "Ready",
       type: "",
-      value: "",
-      label: "",
-      meta: state.currentTurn === "player" ? "Play into this slot." : "Waiting for the reveal.",
+      stateLabel: state.turn.attackerKey === "player" ? "Your move" : "Enemy turn",
+      meta: "Only the next sequential slot can be used.",
       result: "",
       variant: "live"
     };
@@ -2043,17 +617,13 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
   return {
     slot: slotEntry.slot,
     current: false,
-    locked: false,
-    empty: true,
-    stateLabel: "Open",
-    title: "Open",
-    shortTitle: "Open",
+    title: slotEntry.slot < activeSlot ? "Open" : "Waiting",
+    shortTitle: slotEntry.slot < activeSlot ? "Open" : "Locked",
     type: "",
-    value: "",
-    label: "",
-    meta: "Slot clear.",
+    stateLabel: slotEntry.slot < activeSlot ? "Unused" : "Locked",
+    meta: slotEntry.slot < activeSlot ? "No card played here." : "Waiting for the previous slot.",
     result: "",
-    variant: "open"
+    variant: slotEntry.slot < activeSlot ? "open" : "locked"
   };
 }
 
@@ -2080,7 +650,7 @@ function buildSequenceTrackSlot(model, activeSlot) {
   return slot;
 }
 
-function buildSequenceFocusCard(state, model) {
+function buildSequenceFocusCard(model) {
   const card = document.createElement("article");
   card.className = [
     "sequence-focus",
@@ -2097,7 +667,7 @@ function buildSequenceFocusCard(state, model) {
 
   const stateLine = document.createElement("p");
   stateLine.className = "sequence-focus__state";
-  stateLine.textContent = model.stateLabel || (model.variant === "locked" ? "Locked" : "In play");
+  stateLine.textContent = model.stateLabel;
   card.appendChild(stateLine);
 
   if (model.type) {
@@ -2119,14 +689,7 @@ function buildSequenceFocusCard(state, model) {
     card.appendChild(meta);
   }
 
-  if (model.value && model.label) {
-    const value = document.createElement("p");
-    value.className = "sequence-focus__value";
-    value.textContent = `${model.value} ${model.label}`;
-    card.appendChild(value);
-  }
-
-  if (model.result) {
+  if (model.result && model.result !== model.stateLabel) {
     const result = document.createElement("p");
     result.className = "sequence-focus__result";
     result.textContent = model.result;
@@ -2136,42 +699,21 @@ function buildSequenceFocusCard(state, model) {
   return card;
 }
 
-function getActiveSequenceSlot(state) {
-  if (state.pendingDefense?.context.slot) {
-    return state.pendingDefense.context.slot;
-  }
-
-  if (state.pendingCoin?.context.slot) {
-    return state.pendingCoin.context.slot;
-  }
-
-  if (state.pinAttempt?.slot) {
-    return state.pinAttempt.slot;
-  }
-
-  if (state.sequence.totalPlayed < MAX_SEQUENCE_SLOTS) {
-    return state.sequence.nextSlot;
-  }
-
-  return null;
-}
-
 function renderActionPanel(state) {
   const model = buildActionModel(state);
-  const actionOutcome = [state.actionFeedback, model.outcome].filter(Boolean).join(" ");
 
   dom.actionTitle.textContent = model.title;
   dom.actionText.textContent = model.text;
-  dom.actionOutcome.textContent = actionOutcome;
-  dom.actionOutcome.hidden = !actionOutcome;
   dom.actionPhase.textContent = model.phase || "";
   dom.actionPhase.hidden = !model.phase;
+  dom.actionOutcome.textContent = model.outcome || "";
+  dom.actionOutcome.hidden = !model.outcome;
   dom.actionButtons.replaceChildren();
 
   model.buttons.forEach((buttonModel) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `action-button ${resolveActionButtonTone(buttonModel)}`;
+    button.className = `action-button ${buttonModel.tone || "action-button--primary"}`;
     button.textContent = buttonModel.label;
     button.disabled = Boolean(buttonModel.disabled);
     button.addEventListener("click", buttonModel.onClick);
@@ -2179,368 +721,229 @@ function renderActionPanel(state) {
   });
 
   dom.actionButtons.hidden = model.buttons.length === 0;
-
-  dom.endTurnButton.disabled = !canPlayerEndTurn(state);
-  dom.endTurnButton.hidden = state.currentTurn !== "player" || state.isGameOver;
+  dom.endTurnButton.hidden = state.match.over || !canPlayerStopEarly(state);
+  dom.endTurnButton.disabled = !canPlayerStopEarly(state);
+  dom.endTurnButton.textContent = "Stop Early";
 }
 
 function buildActionModel(state) {
-  if (state.isGameOver) {
+  if (state.match.over) {
     return {
       title: "Match Over",
-      text: state.statusMessage,
+      text: state.match.reason,
       outcome: "Reset to play again.",
-      phase: "",
+      phase: "Result",
       buttons: []
     };
   }
 
-  if (state.pendingStep) {
-    return {
-      title: state.pendingStep.title,
-      text: state.pendingStep.text,
-      outcome: "",
-      phase: "Resolve the step",
-      buttons: state.pendingStep.buttons
-    };
-  }
-
-  if (state.pendingCoin && state.pendingCoin.actorKey === "player" && state.pendingCoin.phase === "call") {
-    const coinMode = getCoinMode(app, state.pendingCoin.context);
-    return {
-      title: "Call the flip",
-      text: `${state.pendingCoin.defenseCard.name} is ready. Pick heads or tails.`,
-      outcome: coinModeInstruction(coinMode),
-      phase: `Defending slot ${state.pendingCoin.context.slot}`,
-      buttons: COIN_SIDES.map((side) => {
-        return {
-          label: side,
-          tone: side === "Heads" ? "action-button--dodge" : "action-button--reversal",
-          onClick: () => resolvePlayerCoinCall(side)
-        };
-      })
-    };
-  }
-
-  if (state.pendingCoin && state.pendingCoin.phase === "reveal") {
-    const actor = state[state.pendingCoin.actorKey];
-    const coinMode = getCoinMode(app, state.pendingCoin.context);
+  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
+    const pinned = state.players[state.pinAttempt.defenderKey];
+    const attacker = state.players[state.pinAttempt.attackerKey];
 
     return {
-      title: "Coin Toss",
-      text: `${actor.name} calls ${state.pendingCoin.call}.`,
-      outcome: coinModeInstruction(coinMode),
-      phase: `Resolving slot ${state.pendingCoin.context.slot}`,
-      buttons: [
-        {
-          label: "Flip Coins",
-          tone: "action-button--primary",
-          onClick: resolvePendingCoin
-        }
-      ]
-    };
-  }
-
-  if (state.pendingDefense && state.pendingDefense.context.defenderKey === "player") {
-    const isPin = state.pendingDefense.kind === "pin";
-    const card = state.pendingDefense.context.card;
-    const detail =
-      card.type === "attack"
-        ? `${card.name} revealed for ${card.damage} damage.`
-        : card.type === "taunt"
-          ? `${card.name} revealed. Answer it or let it through.`
-          : `${card.name} revealed. Answer it or go to the count.`;
-    const defenseButtons = buildPlayerDefenseButtons(state);
-
-    return {
-      title: isPin ? "Incoming pin" : `Defend slot ${state.pendingDefense.context.slot}`,
-      text: detail,
-      outcome: isPin
-        ? "Pick a defense or take the count."
-        : "Pick a defense or take the hit.",
-      phase: `Their ${capitalize(card.type)}`,
-      buttons: [
-        ...defenseButtons,
-        {
-          label: isPin ? "Take Count" : "Take Hit",
-          tone: "action-button--take",
-          onClick: passPlayerDefense
-        }
-      ]
-    };
-  }
-
-  if (state.pinAttempt) {
-    const defender = state[state.pinAttempt.defenderKey];
-
-    if (state.pinAttempt.pendingOutcome === "kickout") {
-      return {
-        title: "Kickout",
-        text: `${defender.name} slips out.`,
-        outcome: "",
-        phase: "Pin state",
-        buttons: [
-          {
-            label: "Continue",
-            tone: "action-button--primary",
-            onClick: () => {
-              finishFailedPin(app);
-            }
-          }
-        ]
-      };
-    }
-
-    if (state.pinAttempt.pendingOutcome === "fall") {
-      return {
-        title: "Three Count",
-        text: `${defender.name} draws three straight Fails.`,
-        outcome: "",
-        phase: "Pin state",
-        buttons: [
-          {
-            label: "Finish Match",
-            tone: "action-button--primary",
-            onClick: () => {
-              finishSuccessfulPin(app);
-            }
-          }
-        ]
-      };
-    }
-
-    return {
-      title: "Pin state",
-      text: `Draw up to ${PIN_DRAW_COUNT} from the pin deck.`,
-      outcome: "Kickout escapes. Three Fails ends it.",
-      phase: `Count ${state.pinAttempt.drawnCards.length} / ${PIN_DRAW_COUNT}`,
+      title: "Pinfall Draw",
+      text: `${pinned.name} is pinned by ${attacker.name}.`,
+      outcome: `Kickout ends the pin. Three Fail cards end the match. ${state.pinAttempt.drawnCards.length} drawn so far.`,
+      phase: `Count ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`,
       buttons: [
         {
           label: "Draw Next Card",
           tone: "action-button--primary",
           onClick: () => {
-            resolveNextPinDraw(app);
+            Engine.drawNextPinfallCard(app.state);
+            refreshApp();
           }
         }
       ]
     };
   }
 
-  if (state.currentTurn === "player") {
-    const hasOffense = state.player.hand.some((card) => OFFENSIVE_TYPES.has(card.type));
-    const title =
-      state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS
-        ? "Sequence Complete"
-        : `Slot ${state.sequence.nextSlot}: Your Move`;
+  if (state.phase === Engine.PHASES.TURN_END) {
+    return {
+      title: "Turn Ended",
+      text: state.status || lastLogLine(state),
+      outcome: "Advancing to the next turn.",
+      phase: "Turn end",
+      buttons: []
+    };
+  }
+
+  if (state.phase === Engine.PHASES.RESOLVE_ATTACK && state.resolution?.defenderKey === "player") {
+    return buildPlayerDefenceModel(state, false);
+  }
+
+  if (state.phase === Engine.PHASES.PIN_DEFENCE_DECISION && state.resolution?.defenderKey === "player") {
+    return buildPlayerDefenceModel(state, true);
+  }
+
+  if (state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION && state.turn.attackerKey === "player") {
+    return {
+      title: `Slot ${state.turn.nextSlot}: Your Move`,
+      text: "Play an attack, taunt, or pin into the next sequential slot.",
+      outcome: "You can stop early whenever you want.",
+      phase: "Offensive sequence",
+      buttons: []
+    };
+  }
+
+  if (state.turn.attackerKey === "enemy") {
+    const phase =
+      state.phase === Engine.PHASES.RESOLVE_ATTACK || state.phase === Engine.PHASES.PIN_DEFENCE_DECISION
+        ? "Enemy response"
+        : "Enemy turn";
 
     return {
-      title,
-      text: hasOffense
-        ? "Choose a card below."
-        : "No offense in hand.",
-      outcome: hasOffense
-        ? ""
-        : "End turn when ready.",
-      phase: hasOffense ? "" : `Attacking slot ${state.sequence.nextSlot}`,
+      title: "Stand By",
+      text: `${state.players.enemy.name} is resolving the current turn.`,
+      outcome: lastLogLine(state),
+      phase,
       buttons: []
     };
   }
 
   return {
-    title: "Stand by",
-    text: `${state.enemy.name} is taking the turn.`,
-    outcome: "If a response window opens, your defense choices will appear here.",
-    phase: "Waiting",
+    title: "Resolving",
+    text: state.status || "Working through the current state.",
+    outcome: lastLogLine(state),
+    phase: "State machine",
     buttons: []
   };
 }
 
-function resolveActionButtonTone(buttonModel) {
-  if (buttonModel.tone) {
-    return buttonModel.tone;
+function buildPlayerDefenceModel(state, isPin) {
+  if (state.resolution.awaitingCoinCall && state.resolution.defence) {
+    return {
+      title: "Call the Coin",
+      text: `${state.resolution.defence.card.name} is ready. Pick Heads or Tails.`,
+      outcome: buildCoinModeText(state.resolution.defence.coinMode),
+      phase: isPin ? "Pin defence" : `Slot ${state.resolution.slot} defence`,
+      buttons: Engine.COIN_SIDES.map((side) => {
+        return {
+          label: side,
+          tone: side === "Heads" ? "action-button--dodge" : "action-button--reversal",
+          onClick: () => {
+            Engine.callDefenceCoin(app.state, side);
+            refreshApp();
+          }
+        };
+      })
+    };
   }
 
-  const label = buttonModel.label.toLowerCase();
+  const attackCard = state.resolution.card;
+  const defenceButtons = Engine.getDefenseOptions(state, "player").map((entry) => {
+    return {
+      label: entry.card.name,
+      tone: entry.card.type === "dodge" ? "action-button--dodge" : "action-button--reversal",
+      onClick: () => {
+        Engine.prepareDefence(app.state, entry.handIndex);
+        refreshApp();
+      }
+    };
+  });
 
-  if (label.includes("dodge")) {
-    return "action-button--dodge";
-  }
-
-  if (label.includes("reversal")) {
-    return "action-button--reversal";
-  }
-
-  if (label.includes("take")) {
-    return "action-button--take";
-  }
-
-  return "action-button--primary";
+  return {
+    title: isPin ? "Pin Incoming" : `Defend Slot ${state.resolution.slot}`,
+    text: isPin
+      ? `${attackCard.name} has been played. Decide whether to dodge, reverse, or take the pin.`
+      : `${attackCard.name} is ${state.resolution.onSlot ? "on-slot" : "off-slot"} for ${attackCard.damage} damage.`,
+    outcome: isPin
+      ? "A successful reversal flips the same pin back."
+      : state.resolution.onSlot
+        ? "No defence or a failed defence lets the attack land."
+        : "Off-slot attack: the defender has advantage on the coin flip.",
+    phase: isPin ? "Pin defence" : "Attack defence",
+    buttons: [
+      ...defenceButtons,
+      {
+        label: isPin ? "No Defence" : "Take Hit",
+        tone: "action-button--take",
+        onClick: () => {
+          Engine.chooseNoDefence(app.state);
+          refreshApp();
+        }
+      }
+    ]
+  };
 }
 
-function buildPlayerDefenseButtons(state) {
-  return state.player.hand
-    .map((card, handIndex) => ({ card, handIndex }))
-    .filter((entry) => DEFENSIVE_TYPES.has(entry.card.type))
-    .sort((left, right) => {
-      const order = ["dodge", "reversal"];
-      return order.indexOf(left.card.type) - order.indexOf(right.card.type);
-    })
-    .map(({ card, handIndex }) => {
-      return {
-        label: card.name,
-        tone: card.type === "dodge" ? "action-button--dodge" : "action-button--reversal",
-        onClick: () => commitPlayerDefense(handIndex)
-      };
-    });
-}
-
-function coinModeInstruction(coinMode) {
-  if (coinMode === "easy") {
-    return "Two flips. One match is enough.";
+function buildCoinModeText(mode) {
+  if (mode === "advantage") {
+    return "Two flips. One matching side succeeds.";
   }
 
-  if (coinMode === "hard") {
-    return "Two flips. Both must match.";
+  if (mode === "disadvantage") {
+    return "Two flips. Both sides must match.";
   }
 
   return "One flip decides it.";
 }
 
-function resolvePlayerCoinCall(side) {
-  const pendingCoin = app.state.pendingCoin;
-
-  if (!pendingCoin) {
-    return;
-  }
-
-  app.state.pendingCoin = {
-    ...pendingCoin,
-    phase: "reveal",
-    call: side
-  };
-  app.state.statusMessage = `${app.state.player.name} calls ${side}.`;
-  renderApp(app);
-}
-
-function resolvePendingCoin() {
-  const pendingCoin = app.state.pendingCoin;
-
-  if (!pendingCoin || pendingCoin.phase !== "reveal") {
-    return;
-  }
-
-  app.state.pendingCoin = null;
-  resolveDefenseAttempt(app, pendingCoin.context, pendingCoin.defenseCard, pendingCoin.call);
-}
-
-function passPlayerDefense() {
-  const pendingDefense = app.state.pendingDefense;
-
-  if (!pendingDefense) {
-    return;
-  }
-
-  app.state.pendingDefense = null;
-
-  if (pendingDefense.kind === "pin") {
-    setActionFeedback(app, "No defense: the pin goes to the count.");
-    startPinfallAttempt(app, pendingDefense.context.pinContext);
-    return;
-  }
-
-  setActionFeedback(app, "No defense: the move gets through.");
-  resolveOffensiveCardWithoutDefense(app, pendingDefense.context);
-}
-
 function renderWrestlerPanel(state, wrestlerKey, panelDom) {
-  const wrestler = state[wrestlerKey];
-  const pinSummary = getPinfallSummary(wrestler);
-  const isAttacker = state.currentTurn === wrestlerKey;
-  const roleLabel = isAttacker ? "Attacker" : "Defender";
+  const wrestler = state.players[wrestlerKey];
+  const isAttacker = !state.match.over && state.turn.attackerKey === wrestlerKey;
+  const pinSummary = Engine.getPinfallSummary(wrestler);
+  const pinChance = calculatePinChance(pinSummary.fail, pinSummary.total);
 
   panelDom.name.textContent = wrestler.name;
-  panelDom.role.textContent = roleLabel;
+  panelDom.role.textContent = isAttacker ? "Attacker" : "Defender";
   panelDom.role.classList.toggle("role-chip--attacker", isAttacker);
   panelDom.role.classList.toggle("role-chip--defender", !isAttacker);
   panelDom.stats.innerHTML = `
-    <span class="stat-pill">DMG ${wrestler.accumulatedDamage}</span>
+    <span class="stat-pill">DMG ${wrestler.damage}</span>
+    <span class="stat-pill">HAND ${wrestler.hand.length}</span>
     <span class="stat-pill">DECK ${wrestler.maneuverDeck.length}</span>
-    <span class="stat-pill ${wrestler.stunned ? "stat-pill--warning" : ""}">HAND ${wrestler.hand.length}</span>
   `;
   panelDom.pin.innerHTML = `
     <span class="stat-pill stat-pill--hot">FAIL ${pinSummary.fail}</span>
     <span class="stat-pill">KICKOUT ${pinSummary.kickout}</span>
+    <span class="stat-pill">PIN ${formatPercent(pinChance)}</span>
   `;
-  const statusLine = buildWrestlerStatusLine(wrestler);
-  panelDom.status.textContent = statusLine || "";
+  const statusLine = buildWrestlerStatusLine(state, wrestlerKey);
+  panelDom.status.textContent = statusLine;
   panelDom.status.hidden = !statusLine;
-  panelDom.card.dataset.state = pickPanelState(wrestler, calculatePinChance(pinSummary.fail, pinSummary.total));
-  panelDom.card.dataset.initials = buildInitials(wrestler.name);
+  panelDom.card.dataset.state = pickPanelState(pinChance, wrestler.damage);
 }
 
-function getPinfallSummary(wrestler) {
-  let fail = 0;
-  let kickout = 0;
+function buildWrestlerStatusLine(state, wrestlerKey) {
+  const labels = [];
 
-  wrestler.pinfallDeck.forEach((card) => {
-    if (card === "Fail") {
-      fail += 1;
-      return;
-    }
-
-    kickout += 1;
-  });
-
-  return { total: wrestler.pinfallDeck.length, fail, kickout };
-}
-
-function buildWrestlerStatusLine(wrestler) {
-  const flags = [];
-
-  if (wrestler.stunned) {
-    flags.push("Stunned");
+  if (!state.match.over) {
+    labels.push(state.turn.attackerKey === wrestlerKey ? "Current attacker" : "Current defender");
   }
 
-  if (wrestler.exhaustionPendingLoss) {
-    flags.push("Must win this turn");
+  if (state.pinAttempt?.defenderKey === wrestlerKey) {
+    labels.push("Drawing from pinfall deck");
   }
 
-  return flags.length > 0 ? `Status: ${flags.join(" / ")}` : "";
+  if (state.resolution?.defenderKey === wrestlerKey && state.phase !== Engine.PHASES.PINFALL_DRAW) {
+    labels.push("Defence window open");
+  }
+
+  return labels.join(" / ");
 }
 
-function pickPanelState(wrestler, pinChance) {
-  if (wrestler.exhaustionPendingLoss || pinChance >= 0.35) {
+function pickPanelState(pinChance, damage) {
+  if (pinChance >= 0.35 || damage >= 20) {
     return "danger";
   }
 
-  if (wrestler.stunned || pinChance >= 0.18) {
+  if (pinChance >= 0.18 || damage >= 10) {
     return "warning";
   }
 
   return "steady";
 }
 
-function pickPressureColor(pinChance) {
-  if (pinChance >= 0.35) {
-    return "#da3a64";
-  }
-
-  if (pinChance >= 0.18) {
-    return "#f09a2a";
-  }
-
-  return "#12a6c8";
-}
-
 function calculatePinChance(failCount, totalCount) {
-  if (failCount < PIN_DRAW_COUNT || totalCount < PIN_DRAW_COUNT) {
+  if (failCount < 3 || totalCount < 3) {
     return 0;
   }
 
   let chance = 1;
-
-  for (let drawIndex = 0; drawIndex < PIN_DRAW_COUNT; drawIndex += 1) {
-    chance *= (failCount - drawIndex) / (totalCount - drawIndex);
+  for (let index = 0; index < 3; index += 1) {
+    chance *= (failCount - index) / (totalCount - index);
   }
 
   return chance;
@@ -2550,59 +953,51 @@ function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
-function buildInitials(name) {
-  return name
-    .replace(/['"]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-}
-
 function renderHand(currentApp) {
-  const { state } = currentApp;
-  const player = state.player;
-  const filter = getEffectiveHandFilter(state, app.ui.handFilter || "usable");
-  const playerPinSummary = getPinfallSummary(player);
+  const state = currentApp.state;
+  const player = state.players.player;
+  const effectiveFilter = getEffectiveHandFilter(state, currentApp.ui.handFilter);
+  const pinSummary = Engine.getPinfallSummary(player);
 
-  if (dom.playerPinSummary) {
-    dom.playerPinSummary.textContent = `Fail ${playerPinSummary.fail} / Kickout ${playerPinSummary.kickout}`;
-  }
+  dom.playerPinSummary.textContent = `Fail ${pinSummary.fail} / Kickout ${pinSummary.kickout}`;
   dom.drawPileCount.textContent = `Deck ${player.maneuverDeck.length} / Discard ${player.discardPile.length}`;
   dom.handCards.replaceChildren();
 
   if (player.hand.length === 0) {
-    const emptyState = document.createElement("p");
-    emptyState.className = "empty-state";
-    emptyState.textContent = "Hand is empty.";
-    dom.handCards.appendChild(emptyState);
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Hand is empty.";
+    dom.handCards.appendChild(empty);
     return;
   }
 
   const entries = player.hand.map((card, handIndex) => {
-    const mode = getPlayerHandMode(state, card);
-    return { card, handIndex, mode, category: getCardCategory(card) };
+    return {
+      card,
+      handIndex,
+      mode: getPlayerHandMode(state, card),
+      category: getCardCategory(card)
+    };
   });
 
   const filtered = entries.filter((entry) => {
-    if (filter === "all") {
+    if (effectiveFilter === "all") {
       return true;
     }
 
-    if (filter === "usable") {
+    if (effectiveFilter === "usable") {
       return entry.mode.clickable;
     }
 
-    if (filter === "offense") {
-      return OFFENSIVE_TYPES.has(entry.card.type);
+    if (effectiveFilter === "offense") {
+      return Engine.OFFENSIVE_TYPES.has(entry.card.type);
     }
 
-    if (filter === "defense") {
-      return DEFENSIVE_TYPES.has(entry.card.type);
+    if (effectiveFilter === "defense") {
+      return Engine.DEFENSIVE_TYPES.has(entry.card.type);
     }
 
-    if (filter === "pin") {
+    if (effectiveFilter === "pin") {
       return entry.card.type === "pin";
     }
 
@@ -2610,170 +1005,116 @@ function renderHand(currentApp) {
   });
 
   const ordered = sortHandEntries(state, filtered);
-
   if (ordered.length === 0) {
-    const emptyState = document.createElement("p");
-    emptyState.className = "empty-state";
-    emptyState.textContent =
-      filter === "defense"
-        ? "No defense cards ready."
-        : filter === "usable"
-          ? "No playable cards."
-          : "Nothing here.";
-    dom.handCards.appendChild(emptyState);
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = effectiveFilter === "usable" ? "No playable cards." : "Nothing here.";
+    dom.handCards.appendChild(empty);
     return;
   }
 
-  ordered.forEach(({ card, handIndex, mode }) => {
+  ordered.forEach((entry) => {
     const button = document.createElement("button");
-
     button.type = "button";
     button.className = [
       "hand-card",
-      `hand-card--${card.type}`,
-      mode.clickable ? "hand-card--live" : "",
-      !mode.clickable ? "hand-card--inactive" : "",
-      mode.offSlot ? "hand-card--offslot" : "",
-      mode.validSlot ? "hand-card--valid" : ""
+      `hand-card--${entry.card.type}`,
+      entry.mode.clickable ? "hand-card--live" : "hand-card--inactive",
+      entry.mode.offSlot ? "hand-card--offslot" : "",
+      entry.mode.validSlot ? "hand-card--valid" : ""
     ]
       .filter(Boolean)
       .join(" ");
-    button.dataset.handIndex = String(handIndex);
-    button.setAttribute("aria-disabled", mode.clickable ? "false" : "true");
+    button.dataset.handIndex = String(entry.handIndex);
+    button.setAttribute("aria-disabled", entry.mode.clickable ? "false" : "true");
     button.innerHTML = `
       <div class="hand-card__front">
-        <span class="hand-card__type hand-card__type--${card.type}">${capitalize(card.type)}</span>
-        <span class="hand-card__title">${card.name}</span>
-        <span class="hand-card__value">${formatCardPrimaryValue(card)}</span>
-        <span class="hand-card__label">${formatCardPrimaryLabel(card)}</span>
+        <span class="hand-card__type hand-card__type--${entry.card.type}">${capitalize(entry.card.type)}</span>
+        <span class="hand-card__title">${entry.card.name}</span>
+        <span class="hand-card__value">${formatCardPrimaryValue(entry.card)}</span>
+        <span class="hand-card__label">${formatCardPrimaryLabel(entry.card)}</span>
       </div>
     `;
-
-    button.addEventListener("click", () => {
-      openCardModal(currentApp, { card, handIndex, mode });
-    });
-
+    button.addEventListener("click", () => openCardModal(currentApp, entry));
     dom.handCards.appendChild(button);
   });
 }
 
 function getEffectiveHandFilter(state, currentFilter) {
-  const uiMode = getUiMode(state);
-
-  if (uiMode === "defense") {
+  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
     return "defense";
   }
 
-  if (uiMode === "offense") {
-    return currentFilter === "defense" ? "usable" : currentFilter;
+  if (state.turn.attackerKey !== "player") {
+    return currentFilter === "defense" ? "all" : currentFilter;
   }
 
   return currentFilter;
 }
 
 function getPlayerHandMode(state, card) {
-  if (state.isGameOver || state.pendingCoin || state.pinAttempt) {
+  if (state.match.over || state.phase === Engine.PHASES.PINFALL_DRAW) {
     return { clickable: false, reason: "Finish the current step." };
   }
 
-  if (state.pendingDefense && state.pendingDefense.context.defenderKey === "player") {
-    return DEFENSIVE_TYPES.has(card.type)
-      ? { clickable: true }
-      : { clickable: false, reason: "Save this for your turn." };
+  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
+    return Engine.DEFENSIVE_TYPES.has(card.type)
+      ? { clickable: true, reason: "Use this to defend." }
+      : { clickable: false, reason: "Not a defence card." };
   }
 
-  if (state.currentTurn !== "player") {
-    return DEFENSIVE_TYPES.has(card.type)
-      ? { clickable: false, reason: "Wait for a response window." }
-      : { clickable: false, reason: "Wait for your turn." };
+  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingCoinCall) {
+    return { clickable: false, reason: "Call the coin first." };
   }
 
-  if (state.sequence.totalPlayed >= MAX_SEQUENCE_SLOTS) {
-    return { clickable: false, reason: "End the turn first." };
+  if (state.turn.attackerKey !== "player" || state.phase !== Engine.PHASES.CHOOSE_NEXT_ACTION) {
+    return { clickable: false, reason: "Wait for your turn." };
   }
 
-  if (!OFFENSIVE_TYPES.has(card.type)) {
-    return { clickable: false, reason: "Hold this for defense." };
+  if (!Engine.OFFENSIVE_TYPES.has(card.type)) {
+    return { clickable: false, reason: "Hold this for defence." };
   }
 
-  const fitsSlot = doesCardFitSlot(card, state.sequence.nextSlot);
+  if (card.type === "pin") {
+    return { clickable: true, reason: "Pins are slot-agnostic.", validSlot: true };
+  }
 
-  return fitsSlot
-    ? { clickable: true, validSlot: true }
-    : { clickable: true, offSlot: true, reason: "Off-slot." };
+  const onSlot = Engine.doesCardMatchSlot(card, state.turn.nextSlot);
+  return onSlot
+    ? { clickable: true, reason: "Correct slot.", validSlot: true }
+    : { clickable: true, reason: "Off-slot but still legal.", offSlot: true };
 }
 
 function getCardCategory(card) {
-  if (card.type === "pin") {
-    return "pin";
+  if (Engine.DEFENSIVE_TYPES.has(card.type)) {
+    return "defense";
   }
 
-  if (DEFENSIVE_TYPES.has(card.type)) {
-    return "defense";
+  if (card.type === "pin") {
+    return "pin";
   }
 
   return "offense";
 }
 
 function sortHandEntries(state, entries) {
-  const offenseOrder = ["attack", "taunt", "pin", "dodge", "reversal"];
-  const defenseOrder = ["dodge", "reversal", "attack", "taunt", "pin"];
-  const order = state.pendingDefense || state.currentTurn !== "player" ? defenseOrder : offenseOrder;
+  const order =
+    state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice
+      ? ["dodge", "reversal", "attack", "taunt", "pin"]
+      : ["attack", "taunt", "pin", "dodge", "reversal"];
 
-  return [...entries].sort((a, b) => {
-    if (a.mode.clickable !== b.mode.clickable) {
-      return a.mode.clickable ? -1 : 1;
+  return [...entries].sort((left, right) => {
+    if (left.mode.clickable !== right.mode.clickable) {
+      return left.mode.clickable ? -1 : 1;
     }
 
-    return order.indexOf(a.card.type) - order.indexOf(b.card.type);
+    return order.indexOf(left.card.type) - order.indexOf(right.card.type);
   });
-}
-
-function commitPlayerDefense(handIndex) {
-  const pendingDefense = app.state.pendingDefense;
-
-  if (!pendingDefense) {
-    return;
-  }
-
-  const sourceRect = getPlaySourceRect("player", handIndex);
-  const [defenseCard] = app.state.player.hand.splice(handIndex, 1);
-
-  if (!defenseCard || !DEFENSIVE_TYPES.has(defenseCard.type)) {
-    return;
-  }
-
-  app.state.player.discardPile.push(defenseCard);
-  setSequenceDefenseCard(app.state, pendingDefense.context.slot, "player", defenseCard, "Readied");
-  app.state.pendingDefense = null;
-  app.state.pendingCoin = {
-    phase: "call",
-    actorKey: "player",
-    context: pendingDefense.context,
-    defenseCard
-  };
-  app.state.statusMessage = `${app.state.player.name} readies ${defenseCard.name}.`;
-  renderApp(app);
-  queueCardMotionEffect(sourceRect, pendingDefense.context.slot, "player", defenseCard, "Defense");
-}
-
-function renderMatchLog(state) {
-  dom.matchLogList.replaceChildren();
-
-  state.matchLog.forEach((entry) => {
-    const item = document.createElement("li");
-    item.textContent = entry;
-    dom.matchLogList.appendChild(item);
-  });
-
-  if (state.shouldScrollLog) {
-    state.shouldScrollLog = false;
-  }
 }
 
 function renderRecentEvents(state) {
-  const recent = state.matchLog.slice(-3);
   dom.recentEventsList.replaceChildren();
+  const recent = state.log.slice(-4);
 
   if (recent.length === 0) {
     const item = document.createElement("li");
@@ -2789,119 +1130,63 @@ function renderRecentEvents(state) {
   });
 }
 
-function formatCardSlot(slot) {
-  if (slot === "any") {
-    return "Any slot";
-  }
+function renderMatchLog(state) {
+  dom.matchLogList.replaceChildren();
 
-  if (!slot) {
-    return "Defense";
-  }
-
-  return `Slot ${slot}`;
-}
-
-function formatCardPrimaryValue(card) {
-  if (card.type === "attack") {
-    return `${card.damage}`;
-  }
-
-  if (card.type === "taunt") {
-    return "SETUP";
-  }
-
-  if (card.type === "pin") {
-    return "COVER";
-  }
-
-  if (card.type === "dodge") {
-    return `${card.missDamage || 0}`;
-  }
-
-  return `${card.reversalDamage || 0}`;
-}
-
-function formatCardPrimaryLabel(card) {
-  if (card.type === "attack") {
-    return "Damage";
-  }
-
-  if (card.type === "taunt") {
-    return "Setup";
-  }
-
-  if (card.type === "pin") {
-    return "Cover";
-  }
-
-  if (card.type === "dodge") {
-    return "Slip";
-  }
-
-  return "Counter";
+  state.log.forEach((entry) => {
+    const item = document.createElement("li");
+    item.textContent = entry;
+    dom.matchLogList.appendChild(item);
+  });
 }
 
 function openLogModal() {
-  if (!dom.logModal) {
-    return;
-  }
-
   closeCardModal();
   dom.logModal.hidden = false;
   syncModalState();
 }
 
 function closeLogModal() {
-  if (!dom.logModal) {
-    return;
-  }
-
   dom.logModal.hidden = true;
   syncModalState();
 }
 
 function openCardModal(currentApp, entry) {
-  if (!dom.cardModal) {
-    return;
-  }
-
   const { state } = currentApp;
-  const { card, handIndex, mode } = entry;
-  const cardValue = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
-  const cardReason = mode.reason || "";
+  const card = entry.card;
+  const cardReason = entry.mode.reason || "";
 
   closeLogModal();
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
-  dom.cardModalMeta.textContent = formatCardSlot(card.slot);
-  dom.cardModalValue.textContent = cardValue;
+  dom.cardModalMeta.textContent = formatCardSlot(card);
+  dom.cardModalValue.textContent = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
   dom.cardModalReason.textContent = cardReason;
   dom.cardModalReason.hidden = !cardReason;
   dom.cardModalEffect.textContent = describeCard(card);
 
-  if (mode.clickable) {
+  if (entry.mode.clickable) {
     dom.cardModalAction.hidden = false;
     dom.cardModalAction.disabled = false;
     dom.cardModalAction.textContent =
-      state.pendingDefense && state.pendingDefense.context.defenderKey === "player"
-        ? `Play ${capitalize(card.type)}`
-        : `Use ${card.name}`;
+      state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice
+        ? `Use ${card.name}`
+        : `Play ${card.name}`;
     dom.cardModalAction.onclick = () => {
       closeCardModal();
 
-      if (state.pendingDefense && state.pendingDefense.context.defenderKey === "player") {
-        commitPlayerDefense(handIndex);
+      if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
+        Engine.prepareDefence(app.state, entry.handIndex);
+        refreshApp();
         return;
       }
 
-      if (state.currentTurn === "player") {
-        playOffensiveCard(currentApp, "player", handIndex);
-      }
+      Engine.playOffensiveCard(app.state, entry.handIndex, "player");
+      refreshApp();
     };
   } else {
     dom.cardModalAction.hidden = true;
     dom.cardModalAction.disabled = true;
-    dom.cardModalAction.textContent = "Play Card";
     dom.cardModalAction.onclick = null;
   }
 
@@ -2915,9 +1200,7 @@ function closeCardModal() {
   }
 
   dom.cardModal.hidden = true;
-  if (dom.cardModalAction) {
-    dom.cardModalAction.onclick = null;
-  }
+  dom.cardModalAction.onclick = null;
   syncModalState();
 }
 
@@ -2928,61 +1211,145 @@ function syncModalState() {
   document.body.classList.toggle("modal-open", Boolean(anyModalOpen));
 }
 
-function describeCard(card) {
-  const details = [];
-
-  if (card.type === "attack" && card.missDamage) {
-    details.push(`Miss leaves ${card.missDamage} coming back.`);
+function formatCardSlot(card) {
+  if (card.validSlot === "any") {
+    return card.type === "pin" ? "Pin / Any slot" : "Any slot";
   }
 
-  if (card.type === "dodge") {
-    details.push(`Call it right and they whiff for ${card.missDamage || 0}.`);
+  if (card.validSlot === null || card.validSlot === undefined) {
+    return "Defense";
   }
 
-  if (card.type === "reversal") {
-    details.push(`Call it right and send ${card.reversalDamage || 0} back.`);
-  }
-
-  (card.effects || []).forEach((effect) => {
-    if (effect.type === "pinfall") {
-      details.push(`${effect.target === "self" ? "You" : "They"} get +${effect.amount} ${effect.card}.`);
-      return;
-    }
-
-    if (effect.type === "stun") {
-      details.push(`${effect.target === "self" ? "You are" : "They are"} stunned next turn.`);
-    }
-  });
-
-  if (card.immediatePin) {
-    details.push("Flows straight into a cover.");
-  }
-
-  if (details.length === 0) {
-    return card.type === "pin" ? "Quick cover." : "Simple and clean.";
-  }
-
-  return details.join(" / ");
+  return `Slot ${card.validSlot}`;
 }
 
-function formatRarity(rarity) {
-  const icons = { common: "â—", uncommon: "â—†", rare: "â˜…", special: "â‹" };
-  return `${icons[rarity] || "â€¢"} ${capitalize(rarity)}`;
+function formatCardPrimaryValue(card) {
+  if (card.type === "attack") {
+    return String(card.damage || 0);
+  }
+
+  if (card.type === "taunt") {
+    return "SETUP";
+  }
+
+  if (card.type === "pin") {
+    return "PIN";
+  }
+
+  return "DEF";
+}
+
+function formatCardPrimaryLabel(card) {
+  if (card.type === "attack") {
+    return "Damage";
+  }
+
+  if (card.type === "taunt") {
+    return "Taunt";
+  }
+
+  if (card.type === "pin") {
+    return "Pin";
+  }
+
+  return "Defense";
+}
+
+function describeCard(card) {
+  const parts = [];
+
+  if (card.type === "attack") {
+    parts.push(`Deals ${card.damage} damage.`);
+  }
+
+  if (card.type === "taunt") {
+    parts.push(`Undefendable taunt for slot ${card.validSlot}.`);
+  }
+
+  if (card.type === "pin") {
+    parts.push("Slot-agnostic. Ends the offensive sequence immediately.");
+  }
+
+  if (card.onSlotEffect?.length) {
+    parts.push(`On-slot: ${formatEffects(card.onSlotEffect)}.`);
+  }
+
+  if (card.offSlotEffect?.length || card.type === "taunt") {
+    parts.push(`Off-slot: ${card.offSlotEffect?.length ? formatEffects(card.offSlotEffect) : "No effect"}.`);
+  }
+
+  if (card.onHitEffects?.length) {
+    parts.push(`On hit: ${formatEffects(card.onHitEffects)}.`);
+  }
+
+  if (card.onPinEffects?.length) {
+    parts.push(`On pin: ${formatEffects(card.onPinEffects)}.`);
+  }
+
+  if (card.afterUse === "exhaust") {
+    parts.push("Exhausts after use.");
+  }
+
+  return parts.join(" ");
+}
+
+function formatEffects(effects) {
+  return effects
+    .map((effect) => {
+      if (effect.type === "add_pinfall" || effect.type === "pinfall") {
+        return `add ${effect.amount || 1} ${effect.card} to ${effect.target === "self" ? "your" : "their"} pinfall deck`;
+      }
+
+      if (effect.type === "modify_damage") {
+        const amount = Number(effect.amount || 0);
+        return `${amount >= 0 ? "+" : ""}${amount} damage`;
+      }
+
+      return effect.type;
+    })
+    .join(", ");
+}
+
+function canPlayerStopEarly(state) {
+  return Boolean(
+    state &&
+      !state.match.over &&
+      state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION &&
+      state.turn.attackerKey === "player"
+  );
+}
+
+function resetHandFilter(filter) {
+  app.ui.handFilter = filter;
+  syncHandFilterChips(filter);
+}
+
+function syncHandFilterChips(filter) {
+  dom.handFilters?.querySelectorAll(".filter-chip").forEach((chip) => {
+    chip.classList.toggle("is-active", chip.getAttribute("data-filter") === filter);
+  });
+}
+
+function shortenCardName(name) {
+  return name.length > 16 ? `${name.slice(0, 14)}…` : name;
+}
+
+function formatDefenceSummary(defence) {
+  if (defence.choice === "none") {
+    return "No defence";
+  }
+
+  if (defence.success === null) {
+    return `${capitalize(defence.choice)} readied`;
+  }
+
+  return `${capitalize(defence.choice)} ${defence.success ? "success" : "failed"}`;
+}
+
+function lastLogLine(state) {
+  return state.log[state.log.length - 1] || "";
 }
 
 function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
-
-function coinModeLabel(coinMode) {
-  if (coinMode === "easy") {
-    return "defense advantage";
-  }
-
-  if (coinMode === "hard") {
-    return "defense disadvantage";
-  }
-
-  return "normal odds";
-}
-
