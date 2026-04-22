@@ -12,8 +12,6 @@
   const PIN_DRAW_COUNT = 3;
   const STARTING_PIN_FAILS = 3;
   const STARTING_PIN_KICKOUTS = 7;
-  const COIN_SIDES = ["Heads", "Tails"];
-
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
   const DEFENSIVE_TYPES = new Set(["dodge", "reversal"]);
 
@@ -171,6 +169,14 @@
       endReason: "",
       playedPin: false,
       comboAchieved: false,
+      nextAttackBonus: {
+        attack: 0
+      },
+      nextEffectRollOffAutoWin: 0,
+      slotBonuses: {
+        2: { attack: 0, reversal: 0, miss: 0 },
+        3: { attack: 0, reversal: 0, miss: 0 }
+      },
       slots: Array.from({ length: MAX_SEQUENCE_SLOTS }, (_, index) => {
         return createTurnSlot(index + 1);
       })
@@ -195,24 +201,52 @@
     let drawn = 0;
 
     while (player.hand.length < targetSize) {
-      if (player.maneuverDeck.length === 0) {
-        if (player.discardPile.length === 0) {
-          break;
-        }
-
-        player.maneuverDeck = shuffleArray(player.discardPile.splice(0), state.meta.random);
-        addLog(state, `${player.name} reshuffles the discard pile into the maneuver deck.`);
-      }
-
-      if (player.maneuverDeck.length === 0) {
+      const card = drawOneCard(state, playerKey);
+      if (!card) {
         break;
       }
 
-      player.hand.push(player.maneuverDeck.shift());
+      player.hand.push(card);
       drawn += 1;
     }
 
     return { drawn };
+  }
+
+  function drawCards(state, playerKey, amount) {
+    const player = getPlayer(state, playerKey);
+    let drawn = 0;
+
+    for (let index = 0; index < amount; index += 1) {
+      const card = drawOneCard(state, playerKey);
+      if (!card) {
+        break;
+      }
+
+      player.hand.push(card);
+      drawn += 1;
+    }
+
+    return drawn;
+  }
+
+  function drawOneCard(state, playerKey) {
+    const player = getPlayer(state, playerKey);
+
+    if (player.maneuverDeck.length === 0) {
+      if (player.discardPile.length === 0) {
+        return null;
+      }
+
+      player.maneuverDeck = shuffleArray(player.discardPile.splice(0), state.meta.random);
+      addLog(state, `${player.name} reshuffles the discard pile into the maneuver deck.`);
+    }
+
+    if (player.maneuverDeck.length === 0) {
+      return null;
+    }
+
+    return player.maneuverDeck.shift();
   }
 
   function transitionToChooseNextAction(state) {
@@ -256,6 +290,12 @@
     const slot = state.turn.nextSlot;
     const slotRecord = state.turn.slots[slot - 1];
     const onSlot = card.type === "pin" ? null : doesCardMatchSlot(card, slot);
+    const previousCard = slot > 1 ? state.turn.slots[slot - 2].card : null;
+    const resolutionContext = {
+      slot,
+      onSlot,
+      previousCardType: previousCard?.type || null
+    };
 
     attacker.hand.splice(handIndex, 1);
     state.turn.playsUsed += 1;
@@ -278,12 +318,14 @@
       kind: card.type,
       card,
       cardOwnerKey: activeActorKey,
+      cardAlreadyMoved: false,
       attackerKey: activeActorKey,
       defenderKey,
       slot,
       onSlot,
+      context: resolutionContext,
+      attackProfile: card.type === "attack" ? buildAttackProfile(state, card, resolutionContext) : null,
       awaitingDefenceChoice: false,
-      awaitingCoinCall: false,
       defence: null,
       pinHistory: []
     };
@@ -362,68 +404,35 @@
 
     defender.hand.splice(handIndex, 1);
     state.resolution.awaitingDefenceChoice = false;
-    state.resolution.awaitingCoinCall = true;
     state.resolution.defence = {
       actorKey: state.resolution.defenderKey,
       choice: defenceCard.type,
       card: defenceCard,
-      coinMode: getDefenceCoinMode(state.resolution),
-      call: null,
-      flips: [],
+      contest: null,
       success: null
     };
+
+    addLog(state, `${defender.name} readies ${defenceCard.name}.`);
+
+    if (state.resolution.kind === "attack") {
+      state.resolution.defence.contest = resolveAttackDefenceContest(state);
+    } else {
+      state.resolution.defence.contest = resolvePinDefenceContest(state);
+    }
+
+    state.resolution.defence.success =
+      state.resolution.defence.contest.winnerKey === state.resolution.defenderKey;
 
     updateSlotDefence(state, {
       actorKey: state.resolution.defenderKey,
       choice: defenceCard.type,
       cardName: defenceCard.name,
-      call: null,
-      flips: [],
-      success: null,
-      coinMode: state.resolution.defence.coinMode
+      success: state.resolution.defence.success,
+      contest: state.resolution.defence.contest
     });
 
     state.status = `${defender.name} readies ${defenceCard.name}.`;
-    state.outcome = buildCoinModeDescription(state.resolution.defence.coinMode);
-    addLog(state, `${defender.name} readies ${defenceCard.name}.`);
-    return state;
-  }
-
-  function callDefenceCoin(state, call) {
-    assertActiveMatch(state);
-    if (!state.resolution || !state.resolution.awaitingCoinCall || !state.resolution.defence) {
-      throw new Error("There is no defence coin call to resolve.");
-    }
-
-    if (!COIN_SIDES.includes(call)) {
-      throw new Error("Coin call must be Heads or Tails.");
-    }
-
-    const defence = state.resolution.defence;
-    defence.call = call;
-    defence.flips = flipCoins(
-      state,
-      defence.coinMode === "normal" ? 1 : 2
-    );
-    defence.success = evaluateCoinResult(defence.flips, call, defence.coinMode);
-
-    updateSlotDefence(state, {
-      actorKey: defence.actorKey,
-      choice: defence.choice,
-      cardName: defence.card.name,
-      call,
-      flips: defence.flips.slice(),
-      success: defence.success,
-      coinMode: defence.coinMode
-    });
-
-    const defender = getPlayer(state, defence.actorKey);
-    addLog(
-      state,
-      `${defender.name} calls ${call} with ${defence.card.name}. Coins: ${defence.flips.join(" / ")}.`
-    );
-
-    state.resolution.awaitingCoinCall = false;
+    state.outcome = describeContestOutcome(state.resolution.defence.contest);
 
     if (state.resolution.kind === "attack") {
       resolveAttackDefenceResult(state);
@@ -438,13 +447,37 @@
     const defence = state.resolution.defence;
     const defender = getPlayer(state, state.resolution.defenderKey);
     const attacker = getPlayer(state, state.resolution.attackerKey);
+    const attackProfile = state.resolution.attackProfile;
 
     moveCardAfterUse(state, defence.actorKey, defence.card);
 
     if (defence.success) {
-      addLog(
+      const reflectedDamage = defence.choice === "dodge" ? attackProfile.missDamage : attackProfile.reversalDamage;
+
+      if (reflectedDamage > 0) {
+        const damageResult = applyDamage(state, state.resolution.attackerKey, reflectedDamage);
+        addLog(
+          state,
+          `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name} and ${attacker.name} takes ${reflectedDamage} ${defence.choice === "dodge" ? "miss" : "reversal"} damage.`
+        );
+        logDamageThresholds(state, state.resolution.attackerKey, damageResult);
+      } else {
+        addLog(
+          state,
+          `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately.`
+        );
+      }
+
+      applyEffects(
         state,
-        `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately.`
+        buildSuccessfulDefenceEffects(state.resolution.card, defence.choice),
+        state.resolution.attackerKey,
+        state.resolution.defenderKey,
+        state.resolution.card.name,
+        {
+          slot: state.resolution.slot,
+          card: state.resolution.card
+        }
       );
 
       finalizeAttackCard(state, `Defended by ${capitalize(defence.choice)}`);
@@ -463,7 +496,8 @@
     const resolution = state.resolution;
     const attacker = getPlayer(state, resolution.attackerKey);
     const defender = getPlayer(state, resolution.defenderKey);
-    const damage = computeAttackDamage(resolution.card, resolution.onSlot);
+    const damage = resolution.attackProfile.attackDamage;
+    let shouldImmediatePin = Boolean(resolution.card.immediatePin);
 
     if (damage > 0) {
       const damageResult = applyDamage(state, resolution.defenderKey, damage);
@@ -481,20 +515,51 @@
 
     applyEffects(
       state,
-      extractAfterDamageEffects(resolution.card, resolution.onSlot, "attack"),
+      extractAfterDamageEffects(resolution.card, resolution.onSlot),
       resolution.attackerKey,
       resolution.defenderKey,
-      resolution.card.name
+      resolution.card.name,
+      {
+        slot: resolution.slot,
+        card: resolution.card,
+        markImmediatePin: () => {
+          shouldImmediatePin = true;
+        }
+      }
     );
 
     finalizeAttackCard(state, "Landed");
+
+    if (shouldImmediatePin) {
+      state.turn.playedPin = true;
+      transitionTo(state, PHASES.RESOLVE_PIN);
+      state.resolution = {
+        kind: "pin",
+        card: resolution.card,
+        cardOwnerKey: resolution.cardOwnerKey,
+        cardAlreadyMoved: true,
+        attackerKey: resolution.attackerKey,
+        defenderKey: resolution.defenderKey,
+        slot: resolution.slot,
+        onSlot: null,
+        context: resolution.context,
+        attackProfile: null,
+        awaitingDefenceChoice: false,
+        defence: null,
+        pinHistory: []
+      };
+      addLog(state, `${attacker.name} rolls straight into a pin off ${resolution.card.name}.`);
+      beginPinResolution(state);
+      return;
+    }
+
     advanceAfterResolvedOffense(state);
   }
 
   function finalizeAttackCard(state, resultLabel) {
     const resolution = state.resolution;
     const slotRecord = getTurnSlot(state, resolution.slot);
-    const destination = moveCardAfterUse(state, resolution.attackerKey, resolution.card);
+    const destination = moveResolutionCardAfterUse(state);
 
     slotRecord.result = resultLabel;
     slotRecord.destination = destination;
@@ -512,7 +577,17 @@
       state,
       `${attacker.name} uses ${resolution.card.name}${formatSlotStatus(resolution.onSlot)}. ${resolution.onSlot ? "On-slot effect." : "Reduced off-slot effect."}`
     );
-    applyEffects(state, effects, resolution.attackerKey, resolution.defenderKey, resolution.card.name);
+    applyEffects(
+      state,
+      effects,
+      resolution.attackerKey,
+      resolution.defenderKey,
+      resolution.card.name,
+      {
+        slot: resolution.slot,
+        card: resolution.card
+      }
+    );
     const destination = moveCardAfterUse(state, resolution.attackerKey, resolution.card);
     const slotRecord = getTurnSlot(state, resolution.slot);
 
@@ -543,7 +618,7 @@
 
     if (defence.choice === "dodge") {
       addLog(state, `${defender.name} dodges the pin from ${attacker.name}.`);
-      const destination = moveCardAfterUse(state, state.resolution.cardOwnerKey, state.resolution.card);
+      const destination = moveResolutionCardAfterUse(state);
       finalizePinCard(state, `${defender.name} dodged the pin`, destination);
       finishTurn(state, "pin");
       return;
@@ -560,7 +635,6 @@
     state.resolution.attackerKey = state.resolution.defenderKey;
     state.resolution.defenderKey = originalAttackerKey;
     state.resolution.awaitingDefenceChoice = false;
-    state.resolution.awaitingCoinCall = false;
     state.resolution.defence = null;
 
     transitionTo(state, PHASES.PIN_DEFENCE_DECISION);
@@ -583,10 +657,14 @@
       resolution.card.onPinEffects,
       resolution.attackerKey,
       resolution.defenderKey,
-      resolution.card.name
+      resolution.card.name,
+      {
+        slot: resolution.slot,
+        card: resolution.card
+      }
     );
 
-    const destination = moveCardAfterUse(state, resolution.cardOwnerKey, resolution.card);
+    const destination = moveResolutionCardAfterUse(state);
     finalizePinCard(state, `${getPlayer(state, resolution.defenderKey).name} is pinned`, destination);
 
     state.pinAttempt = {
@@ -780,17 +858,232 @@
     }
   }
 
-  function applyEffects(state, effects, ownerKey, opponentKey, sourceName) {
+  function applyEffects(state, effects, ownerKey, opponentKey, sourceName, context = {}) {
     (effects || []).forEach((effect) => {
-      if (!effect || effect.type === "modify_damage") {
+      if (!effect) {
         return;
       }
 
       if (effect.type === "add_pinfall" || effect.type === "pinfall") {
         const targetKey = effect.target === "self" ? ownerKey : opponentKey;
         addPinfallCards(state, targetKey, effect.card, effect.amount || 1, sourceName);
+        return;
+      }
+
+      if (effect.type === "add_pinfall_per_slot") {
+        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
+        const amount = Math.max(0, Number(context.slot || 0));
+        if (amount > 0) {
+          addPinfallCards(state, targetKey, effect.card, amount, sourceName);
+        }
+        return;
+      }
+
+      if (effect.type === "draw_cards" || effect.type === "draw") {
+        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
+        const drawn = drawCards(state, targetKey, effect.amount || 1);
+        addLog(
+          state,
+          `${getPlayer(state, targetKey).name} draws ${drawn} ${pluralize("card", drawn)} from ${sourceName}.`
+        );
+        return;
+      }
+
+      if (effect.type === "discard_random") {
+        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
+        discardCards(state, targetKey, effect.amount || 1, { random: true, sourceName });
+        return;
+      }
+
+      if (effect.type === "discard_forced" || effect.type === "discard") {
+        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
+        discardCards(state, targetKey, effect.amount || 1, { random: false, sourceName });
+        return;
+      }
+
+      if (effect.type === "apply_damage") {
+        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
+        const damageResult = applyDamage(state, targetKey, Number(effect.amount || 0));
+        addLog(
+          state,
+          `${getPlayer(state, targetKey).name} takes ${effect.amount || 0} damage from ${sourceName}.`
+        );
+        logDamageThresholds(state, targetKey, damageResult);
+        return;
+      }
+
+      if (effect.type === "add_next_attack_bonus") {
+        state.turn.nextAttackBonus.attack += Number(effect.amount || 0);
+        addLog(
+          state,
+          `${getPlayer(state, ownerKey).name}'s next attack this turn gains +${effect.amount || 0} ATK.`
+        );
+        return;
+      }
+
+      if (effect.type === "add_slot_bonus") {
+        (effect.slots || []).forEach((slot) => {
+          if (!state.turn.slotBonuses[slot]) {
+            state.turn.slotBonuses[slot] = { attack: 0, reversal: 0, miss: 0 };
+          }
+
+          state.turn.slotBonuses[slot].attack += Number(effect.attack || 0);
+          state.turn.slotBonuses[slot].reversal += Number(effect.reversal || 0);
+          state.turn.slotBonuses[slot].miss += Number(effect.miss || 0);
+        });
+        addLog(
+          state,
+          `${getPlayer(state, ownerKey).name} powers up later slots from ${sourceName}.`
+        );
+        return;
+      }
+
+      if (effect.type === "grant_next_rolloff_auto_win") {
+        state.turn.nextEffectRollOffAutoWin += Number(effect.amount || 1);
+        addLog(
+          state,
+          `${getPlayer(state, ownerKey).name}'s next offensive roll-off this turn cannot be lost.`
+        );
+        return;
+      }
+
+      if (effect.type === "roll_off") {
+        resolveEffectRollOff(state, effect, ownerKey, opponentKey, sourceName, context);
+        return;
+      }
+
+      if (effect.type === "repeat_roll_off") {
+        resolveRepeatedRollOff(state, effect, ownerKey, opponentKey, sourceName, context);
+        return;
+      }
+
+      if (effect.type === "immediate_pin") {
+        if (typeof context.markImmediatePin === "function") {
+          context.markImmediatePin();
+        }
       }
     });
+  }
+
+  function resolveEffectRollOff(state, effect, ownerKey, opponentKey, sourceName, context) {
+    const contest = resolveD20Contest(state, {
+      label: effect.label || `${sourceName} roll-off`,
+      attackerKey: ownerKey,
+      defenderKey: opponentKey,
+      attackerShift: 0,
+      defenderShift: 0
+    });
+    const ownerWins = applyRollOffProtectionIfNeeded(state, contest, ownerKey, sourceName);
+
+    addLog(
+      state,
+      `${getPlayer(state, ownerWins ? ownerKey : opponentKey).name} wins the ${effect.label || sourceName} roll-off.`
+    );
+
+    if (ownerWins) {
+      applyEffects(state, effect.onWinEffects, ownerKey, opponentKey, sourceName, context);
+      return;
+    }
+
+    applyEffects(state, effect.onLoseEffects, ownerKey, opponentKey, sourceName, context);
+  }
+
+  function resolveRepeatedRollOff(state, effect, ownerKey, opponentKey, sourceName, context) {
+    const count = Number(effect.count || 1);
+
+    for (let index = 0; index < count; index += 1) {
+      const label = `${effect.label || sourceName} ${index + 1}`;
+      const contest = resolveD20Contest(state, {
+        label,
+        attackerKey: ownerKey,
+        defenderKey: opponentKey,
+        attackerShift: 0,
+        defenderShift: 0
+      });
+      const ownerWins = applyRollOffProtectionIfNeeded(state, contest, ownerKey, sourceName);
+
+      if (ownerWins) {
+        addLog(state, `${getPlayer(state, ownerKey).name} wins ${label}.`);
+        applyEffects(state, effect.onWinEffects, ownerKey, opponentKey, sourceName, context);
+      } else if (effect.onLoseEffects?.length) {
+        addLog(state, `${getPlayer(state, opponentKey).name} wins ${label}.`);
+        applyEffects(state, effect.onLoseEffects, ownerKey, opponentKey, sourceName, context);
+      }
+    }
+  }
+
+  function applyRollOffProtectionIfNeeded(state, contest, ownerKey, sourceName) {
+    const ownerWon = contest.winnerKey === ownerKey;
+    if (ownerWon || state.turn.nextEffectRollOffAutoWin <= 0) {
+      return ownerWon;
+    }
+
+    state.turn.nextEffectRollOffAutoWin -= 1;
+    addLog(
+      state,
+      `${sourceName} is protected and ${getPlayer(state, ownerKey).name} cannot lose that roll-off.`
+    );
+    return true;
+  }
+
+  function discardCards(state, playerKey, amount, options = {}) {
+    const player = getPlayer(state, playerKey);
+
+    for (let index = 0; index < amount; index += 1) {
+      if (player.hand.length === 0) {
+        addLog(state, `${player.name} has no cards left to discard.`);
+        return;
+      }
+
+      const discardIndex = options.random
+        ? Math.floor(nextRandom(state) * player.hand.length)
+        : chooseForcedDiscardIndex(player.hand);
+      const [discarded] = player.hand.splice(discardIndex, 1);
+      player.discardPile.push(discarded);
+      addLog(
+        state,
+        `${player.name} discards ${discarded.name}${options.random ? " at random" : ""}${options.sourceName ? ` from ${options.sourceName}` : ""}.`
+      );
+    }
+  }
+
+  function chooseForcedDiscardIndex(hand) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+
+    hand.forEach((card, index) => {
+      const score = scoreForcedDiscardCard(card);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+
+    return bestIndex;
+  }
+
+  function scoreForcedDiscardCard(card) {
+    if (card.type === "attack") {
+      return 100 + Number(card.damage || 0);
+    }
+
+    if (card.type === "pin") {
+      return 90;
+    }
+
+    if (card.type === "taunt") {
+      return 70;
+    }
+
+    if (card.type === "reversal") {
+      return 50;
+    }
+
+    if (card.type === "dodge") {
+      return 40;
+    }
+
+    return 0;
   }
 
   function addPinfallCards(state, playerKey, cardType, amount, sourceName) {
@@ -818,21 +1111,28 @@
     return destination === "exhaustPile" ? "exhaust" : "discard";
   }
 
+  function moveResolutionCardAfterUse(state) {
+    if (state.resolution.cardAlreadyMoved) {
+      return state.resolution.card.afterUse === "exhaust" ? "exhaust" : "discard";
+    }
+
+    const destination = moveCardAfterUse(state, state.resolution.cardOwnerKey, state.resolution.card);
+    state.resolution.cardAlreadyMoved = true;
+    return destination;
+  }
+
   function recordNoDefence(state) {
     const defender = getPlayer(state, state.resolution.defenderKey);
     updateSlotDefence(state, {
       actorKey: state.resolution.defenderKey,
       choice: "none",
       cardName: "",
-      call: null,
-      flips: [],
       success: null,
-      coinMode: "normal"
+      contest: null
     });
 
     addLog(state, `${defender.name} chooses no defence.`);
     state.resolution.awaitingDefenceChoice = false;
-    state.resolution.awaitingCoinCall = false;
     state.resolution.defence = null;
   }
 
@@ -842,10 +1142,8 @@
       actorKey: defenceInfo.actorKey,
       choice: defenceInfo.choice,
       cardName: defenceInfo.cardName,
-      call: defenceInfo.call,
-      flips: defenceInfo.flips,
       success: defenceInfo.success,
-      coinMode: defenceInfo.coinMode
+      contest: defenceInfo.contest
     };
   }
 
@@ -858,54 +1156,207 @@
     return slotRecord;
   }
 
-  function computeAttackDamage(card, onSlot) {
-    if (onSlot && typeof card.onSlotDamage === "number") {
-      return Math.max(0, card.onSlotDamage);
+  function buildAttackProfile(state, card, context) {
+    const attackBonus = consumeNextAttackBonus(state, card.type);
+    const slotBonus = getSlotBonus(state, context.slot);
+    const valueModifier = getCardValueModifier(card, context);
+
+    return {
+      attackDamage: Math.max(0, Number(card.damage || 0) + attackBonus + slotBonus.attack + valueModifier.attack),
+      reversalDamage: Math.max(
+        0,
+        Number(card.reversalDamage || 0) + slotBonus.reversal + valueModifier.reversal
+      ),
+      missDamage: Math.max(0, Number(card.missDamage || 0) + slotBonus.miss + valueModifier.miss)
+    };
+  }
+
+  function consumeNextAttackBonus(state, cardType) {
+    if (cardType !== "attack") {
+      return 0;
     }
 
-    if (!onSlot && typeof card.offSlotDamage === "number") {
-      return Math.max(0, card.offSlotDamage);
-    }
+    const bonus = state.turn.nextAttackBonus.attack || 0;
+    state.turn.nextAttackBonus.attack = 0;
+    return bonus;
+  }
 
-    let damage = Number(card.damage || 0);
+  function getSlotBonus(state, slot) {
+    return state.turn.slotBonuses[slot] || { attack: 0, reversal: 0, miss: 0 };
+  }
+
+  function getCardValueModifier(card, context) {
+    return (card.valueModifiers || []).reduce(
+      (totals, modifier) => {
+        if (!doesModifierMatch(modifier.when, context)) {
+          return totals;
+        }
+
+        totals.attack += Number(modifier.attack || 0);
+        totals.reversal += Number(modifier.reversal || 0);
+        totals.miss += Number(modifier.miss || 0);
+        return totals;
+      },
+      { attack: 0, reversal: 0, miss: 0 }
+    );
+  }
+
+  function extractAfterDamageEffects(card, onSlot) {
     const slotEffects = onSlot ? card.onSlotEffect : card.offSlotEffect;
+    return (slotEffects || []).concat(card.onHitEffects || []);
+  }
 
-    (slotEffects || []).forEach((effect) => {
-      if (effect?.type === "modify_damage") {
-        damage += Number(effect.amount || 0);
+  function buildSuccessfulDefenceEffects(card, choice) {
+    const defendedEffects = card.onDefendedEffects || [];
+
+    if (choice === "dodge") {
+      return defendedEffects.concat(card.onDodgedEffects || []);
+    }
+
+    return defendedEffects;
+  }
+
+  function resolveAttackDefenceContest(state) {
+    const resolution = state.resolution;
+    const modifierShifts = getAttackContestShifts(resolution);
+
+    return resolveD20Contest(state, {
+      label: `${resolution.card.name} defence`,
+      attackerKey: resolution.attackerKey,
+      defenderKey: resolution.defenderKey,
+      attackerShift: modifierShifts.attacker,
+      defenderShift: modifierShifts.defender
+    });
+  }
+
+  function getAttackContestShifts(resolution) {
+    const shifts = { attacker: 0, defender: 0 };
+
+    if (resolution.onSlot === false) {
+      shifts.defender += 1;
+    }
+
+    (resolution.card.contestModifiers || []).forEach((modifier) => {
+      if (!doesModifierMatch(modifier.when, resolution.context)) {
+        return;
+      }
+
+      if (modifier.target === "attacker") {
+        shifts.attacker += Number(modifier.delta || 0);
+      } else {
+        shifts.defender += Number(modifier.delta || 0);
       }
     });
 
-    return Math.max(0, damage);
+    return shifts;
   }
 
-  function extractAfterDamageEffects(card, onSlot, kind) {
-    const slotEffects = (onSlot ? card.onSlotEffect : card.offSlotEffect).filter((effect) => {
-      return effect?.type !== "modify_damage";
+  function resolvePinDefenceContest(state) {
+    return resolveD20Contest(state, {
+      label: `${state.resolution.card.name} pin defence`,
+      attackerKey: state.resolution.attackerKey,
+      defenderKey: state.resolution.defenderKey,
+      attackerShift: 0,
+      defenderShift: 0
     });
-
-    if (kind === "attack") {
-      return slotEffects.concat(card.onHitEffects || []);
-    }
-
-    return slotEffects;
   }
 
-  function getDefenceCoinMode(resolution) {
-    const override =
-      resolution.card.defenceModifiers?.[
-        resolution.kind === "pin" ? "pin" : resolution.onSlot ? "onSlot" : "offSlot"
-      ];
+  function resolveD20Contest(state, options) {
+    while (true) {
+      const attackerRoll = rollContestValue(state, options.attackerShift || 0);
+      const defenderRoll = rollContestValue(state, options.defenderShift || 0);
 
-    if (override) {
-      return override;
+      if (attackerRoll.final === defenderRoll.final) {
+        addLog(
+          state,
+          `${options.label}: tie at ${attackerRoll.final}-${defenderRoll.final}, rolling again.`
+        );
+        continue;
+      }
+
+      const winnerKey =
+        attackerRoll.final > defenderRoll.final ? options.attackerKey : options.defenderKey;
+
+      addLog(
+        state,
+        `${options.label}: ${getPlayer(state, options.attackerKey).name} rolls ${formatContestRoll(attackerRoll)} vs ${getPlayer(state, options.defenderKey).name} rolling ${formatContestRoll(defenderRoll)}.`
+      );
+
+      return {
+        attackerKey: options.attackerKey,
+        defenderKey: options.defenderKey,
+        attackerRoll,
+        defenderRoll,
+        winnerKey
+      };
+    }
+  }
+
+  function rollContestValue(state, shift) {
+    const mode = normalizeContestShift(shift);
+    const first = rollD20(state);
+
+    if (mode === "normal") {
+      return {
+        mode,
+        rolls: [first],
+        final: first
+      };
     }
 
-    if (resolution.kind === "attack" && resolution.onSlot === false) {
+    const second = rollD20(state);
+    const final = mode === "advantage" ? Math.max(first, second) : Math.min(first, second);
+
+    return {
+      mode,
+      rolls: [first, second],
+      final
+    };
+  }
+
+  function formatContestRoll(result) {
+    if (result.mode === "normal") {
+      return String(result.final);
+    }
+
+    const label = result.mode === "advantage" ? "adv" : "dis";
+    return `${result.rolls.join("/")} (${label} ${result.final})`;
+  }
+
+  function normalizeContestShift(shift) {
+    if (shift > 0) {
       return "advantage";
     }
 
+    if (shift < 0) {
+      return "disadvantage";
+    }
+
     return "normal";
+  }
+
+  function doesModifierMatch(when, context) {
+    if (!when) {
+      return true;
+    }
+
+    if (when.slot && when.slot !== context.slot) {
+      return false;
+    }
+
+    if (when.previousCardType && when.previousCardType !== context.previousCardType) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function describeContestOutcome(contest) {
+    if (!contest) {
+      return "";
+    }
+
+    return `${formatContestRoll(contest.attackerRoll)} vs ${formatContestRoll(contest.defenderRoll)}.`;
   }
 
   function flipCoins(state, count) {
@@ -920,16 +1371,20 @@
     return nextRandom(state) < 0.5 ? "Heads" : "Tails";
   }
 
-  function evaluateCoinResult(flips, call, mode) {
-    if (mode === "advantage") {
-      return flips.some((flip) => flip === call);
-    }
+  function rollD20(state) {
+    return Math.floor(nextRandom(state) * 20) + 1;
+  }
 
-    if (mode === "disadvantage") {
-      return flips.every((flip) => flip === call);
-    }
+  function buildPreviewAttackProfile(state, card, context) {
+    const attackBonus = state.turn.nextAttackBonus.attack || 0;
+    const slotBonus = getSlotBonus(state, context.slot);
+    const valueModifier = getCardValueModifier(card, context);
 
-    return flips[0] === call;
+    return {
+      attackDamage: Math.max(0, Number(card.damage || 0) + attackBonus + slotBonus.attack + valueModifier.attack),
+      reversalDamage: Math.max(0, Number(card.reversalDamage || 0) + slotBonus.reversal + valueModifier.reversal),
+      missDamage: Math.max(0, Number(card.missDamage || 0) + slotBonus.miss + valueModifier.miss)
+    };
   }
 
   function chooseAiOffence(state, actorKey) {
@@ -960,7 +1415,12 @@
     const pinPressure = pinSummary.total > 0 ? pinSummary.fail / pinSummary.total : 0;
 
     if (card.type === "attack") {
-      score += 20 + (card.damage || 0) + (onSlot ? 4 : 1);
+      const profile = buildPreviewAttackProfile(state, card, {
+        slot,
+        onSlot,
+        previousCardType: slot > 1 ? state.turn.slots[slot - 2].card?.type || null : null
+      });
+      score += 20 + profile.attackDamage + (onSlot ? 4 : 1);
     }
 
     if (card.type === "taunt") {
@@ -997,7 +1457,8 @@
     const threat =
       state.resolution.kind === "pin"
         ? 99
-        : (state.resolution.card.damage || 0) + getPinfallEffectPressure(state.resolution.card.onHitEffects);
+        : (state.resolution.attackProfile?.attackDamage || state.resolution.card.damage || 0) +
+          getPinfallEffectPressure(state.resolution.card.onHitEffects);
     let defendChance = state.resolution.kind === "pin" ? 0.9 : state.resolution.onSlot ? 0.55 : 0.75;
 
     if (threat <= 3) {
@@ -1020,8 +1481,7 @@
 
     return {
       type: "card",
-      handIndex: chosen.handIndex,
-      call: nextCoinSide(state)
+      handIndex: chosen.handIndex
     };
   }
 
@@ -1046,7 +1506,15 @@
   }
 
   function doesCardMatchSlot(card, slotNumber) {
-    return card.validSlot === "any" || card.validSlot === slotNumber;
+    if (card.validSlot === "any") {
+      return true;
+    }
+
+    if (Array.isArray(card.validSlot)) {
+      return card.validSlot.includes(slotNumber);
+    }
+
+    return card.validSlot === slotNumber;
   }
 
   function normalizeCard(card) {
@@ -1055,17 +1523,24 @@
       name: String(card.name),
       type: card.type,
       rarity: card.rarity || "common",
-      validSlot: card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null),
+      validSlot: normalizeValidSlot(card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null)),
       damage: Number(card.damage || 0),
+      reversalDamage: Number(card.reversalDamage || 0),
+      missDamage: Number(card.missDamage || 0),
+      effectText: String(card.effectText || ""),
       onSlotDamage: card.onSlotDamage === undefined ? undefined : Number(card.onSlotDamage),
       offSlotDamage: card.offSlotDamage === undefined ? undefined : Number(card.offSlotDamage),
       onSlotEffect: cloneEffects(card.onSlotEffect),
       offSlotEffect: cloneEffects(card.offSlotEffect),
       onHitEffects: cloneEffects(card.onHitEffects),
       onPinEffects: cloneEffects(card.onPinEffects),
+      onDodgedEffects: cloneEffects(card.onDodgedEffects),
+      onDefendedEffects: cloneEffects(card.onDefendedEffects),
       afterUse: card.afterUse === "exhaust" ? "exhaust" : "discard",
-      defenceModifiers: cloneDefenceModifiers(card.defenceModifiers),
-      flags: { ...(card.flags || {}) }
+      contestModifiers: cloneEffects(card.contestModifiers),
+      valueModifiers: cloneEffects(card.valueModifiers),
+      immediatePin: Boolean(card.immediatePin),
+      flags: cloneValue(card.flags) || {}
     };
   }
 
@@ -1082,19 +1557,35 @@
       return [];
     }
 
-    return effects.map((effect) => ({ ...effect }));
+    return effects.map((effect) => cloneValue(effect));
   }
 
-  function cloneDefenceModifiers(modifiers) {
-    if (!modifiers) {
-      return {};
+  function cloneValue(value) {
+    if (Array.isArray(value)) {
+      return value.map((entry) => cloneValue(entry));
     }
 
-    return {
-      onSlot: modifiers.onSlot,
-      offSlot: modifiers.offSlot,
-      pin: modifiers.pin
-    };
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => {
+        return [key, cloneValue(entry)];
+      })
+    );
+  }
+
+  function normalizeValidSlot(value) {
+    if (value === "any" || value === null || value === undefined) {
+      return value ?? null;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((slot) => Number(slot));
+    }
+
+    return Number(value);
   }
 
   function clonePinfallDeck(pinfallDeck) {
@@ -1137,7 +1628,7 @@
     };
   }
 
-  function buildDeckForWrestler(wrestler, cardLookup, deckRecipe) {
+  function buildDeckFromRecipe(cardLookup, deckRecipe) {
     const deck = [];
 
     deckRecipe.forEach((entry) => {
@@ -1151,15 +1642,11 @@
       }
     });
 
-    if (wrestler.signature) {
-      deck.push(normalizeCard(wrestler.signature));
-    }
-
-    if (wrestler.finisher) {
-      deck.push(normalizeCard(wrestler.finisher));
-    }
-
     return deck;
+  }
+
+  function buildDeckForWrestler(_wrestler, cardLookup, deckRecipe) {
+    return buildDeckFromRecipe(cardLookup, deckRecipe);
   }
 
   function getCurrentAttacker(state) {
@@ -1235,18 +1722,6 @@
     return onSlot ? " on-slot" : " off-slot";
   }
 
-  function buildCoinModeDescription(mode) {
-    if (mode === "advantage") {
-      return "Two flips. One match succeeds.";
-    }
-
-    if (mode === "disadvantage") {
-      return "Two flips. Both must match.";
-    }
-
-    return "One flip decides it.";
-  }
-
   function pluralize(word, count) {
     return count === 1 ? word : `${word}s`;
   }
@@ -1288,7 +1763,6 @@
   }
 
   return {
-    COIN_SIDES,
     DEFENSIVE_TYPES,
     OFFENSIVE_TYPES,
     PHASES,
@@ -1301,8 +1775,8 @@
       STARTING_PIN_KICKOUTS
     },
     addPinfallCards,
+    buildDeckFromRecipe,
     buildDeckForWrestler,
-    callDefenceCoin,
     chooseAiDefence,
     chooseAiOffence,
     chooseNoDefence,

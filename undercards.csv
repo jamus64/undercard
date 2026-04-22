@@ -1,0 +1,54 @@
+,,,,ATK,RVS,MSS,
+#,Card Name,Card Type,Slot,Attack Damage,Reverse Damage,Miss Damage,Effect
+1,Wild Swing,ATK,1/2/3,5,4,4,"If defended, attacker is Stunned."
+2,Eye Rake,ATK,1,1,3,2,"Roll off against opponent: On win apply Stun to opponent. On lose, attacker discards 1 card at random."
+3,Low Blow,ATK,2/3,7,2,3,"Roll off against opponent: On win apply Stun to opponent. On lose, attacker adds 1 Fail to their Pinfall deck."
+4,Chair Shot,ATK,3,9,2,2,"Roll off against opponent: On win apply stun to opponent and add 1 Kickout card to your Pinfall deck. On lose, attacker adds 2 Fails to their Pinfall deck."
+5,Sharpshooter,ATK,3,6,4,2,"Roll off against opponent: On win, Stun + opponent discards 1."
+6,Big Boot,ATK,2/3,6,3,3,
+7,Headbutt,ATK,2/3,5,6,6,"On success, attacker takes 3 self-damage."
+8,Clothesline,ATK,1/3,4,4,1,"When played in Slot 1, attacker has Disadvantage"
+9,Spear,ATK,1/3,9,7,7,"On success, immediately Pin."
+10,Cheap Shot,ATK,1/2,3,4,3,"On success, defender discards a card."
+11,Ref Distraction,ATK,1/2,0,0,0,"The next Heel move you play this turn, you cannot lose the roll off."
+12,Elbow Drop,ATK,2/3,6,4,6,"If played after a Taunt, defender has Disadvantage."
+13,Frog Splash,ATK,2/3,6,3,7,"If played after a Taunt, defender has Disadvantage."
+14,Hurricanrana,ATK,1,2,1,3,
+15,450 Splash,ATK,3,8,3,7,"On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard a card at random."
+16,Second Rope Elbow Drop,ATK,2/3,7,2,4,"When played in Slot 3, defender has Disadvantage "
+17,Shooting Star Press,ATK,3,8,3,7,"On success, immediately Pin."
+18,German Suplex,ATK,2,5,5,2,"On success, add 1 Fail to opponent’s Pinfall deck."
+19,Spinebuster,ATK,2/3,6,5,3,
+20,Suplex,ATK,2,3,5,2,
+21,Bear Hug,ATK,2,3,2,2,"Roll off against opponent: On win, add 1 Kickout! to your Pinfall deck."
+22,Powerbomb,ATK,3,7,6,6,"On success, add 1 Fail to opponent’s Pinfall deck."
+23,Chokeslam,ATK,3,9,6,6,"On success, immediately Pin."
+24,Dropkick,ATK,2/3,4,3,4,"If played in Slot 3, +2 ATK."
+25,Body Blow,ATK,1/2,3,2,2,Draw a maneuver card
+26,Chop,ATK,1,1,1,0,Draw a maneuver card
+27,Jab,ATK,1,1,1,0,Next Attack this turn gains +1 ATK.
+28,Super Kick,ATK,3,9,5,6,"On success, immediately Pin."
+29,Armbar,ATK,2,3,2,1,"Roll off against opponent: On win, add 1 Kickout! to your Pinfall deck."
+30,Irish Whip,ATK,1/2,0,0,0,Next Attack this turn gains +2 ATK.
+31,Sleeper Hold,ATK,2/3,2,2,0,
+32,Trip,ATK,1,1,1,1,"On success, opponent discards 1 at random."
+33,Figure Four Leg Lock,ATK,3,6,8,3,Roll off against opponent 3 times - add Fail card to defenders Pinfall deck for each win for Attacker
+34,Gun Show,TAUNT,1 / 2 / 3,,,,"Both players roll a D20. If the attacker’s roll is higher, their next Attack this turn gains +1 ATK. If the defender’s roll is higher, the opponent draws 1 card."
+35,Roar,TAUNT,2,,,,Add +2 to next Attack 
+36,Come On!,TAUNT,2 / 3,,,,
+37,Hulk Up,TAUNT,1,,,,"Cards in 2nd and 3rd Slot get +2 to ATK, RVS & MSS"
+38,Get Hyped,TAUNT,1 / 3,,,,Remove Stun 
+39,Fwahhh!,TAUNT,1 / 3,,,,Both players discard 1 card at random
+40,Gyrate Hips,TAUNT,1 / 2 ,,,,"Add Kickout! cards to your Pinfall deck equal to the slot played (1 if Slot 1, 2 if Slot 2)."
+41,Strut,TAUNT,3,,,,Add 1 Kickout! card to your Pinfall deck
+42,Yell at Crowd,TAUNT,2 / 3,,,,Both players discard 1 card at random
+43,Shush,TAUNT,1 / 2,,,,Add +1 to next Attack 
+44,Air Guitar,TAUNT,1 / 2 / 3,,,,"Draw 1 card, then discard 1 card at random"
+45,Complain to Ref,TAUNT,3,,,#N/A,"Both players roll a D20. If the attacker’s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender’s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck."
+46,Dodge,DEF,,,,,"Can be used in the defense phase of an attack to attempt a dodge, When a player plays an attack, the opponent may play a Dodge card. Both players roll a D20 - highest roll determines winner. 
+If the player attempting the dodge wins, they dodge the attack, the attacker takes Miss Damage, and their combo ends. If the player attempting the attack wins, the dodge fails and the defending player takes the Attack Damage.
+"
+47,Reversal,DEF,,,,,"Can be used in the defense phase of an attack to attempt a reversal, When a player plays an attack, the opponent may play a Reversal card. Both players roll a D20 - highest roll determines winner. 
+If the player attempting the reversal wins, the attack is reversed, Reversal Damage is applied to the attacker, and the combo ends. If the player attempting the attack wins, the reversal fails and the defending player takes the Attack Damage.
+"
+48,Pin,PIN,,,,,"On success, Pinfall Attempt begins"

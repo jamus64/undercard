@@ -1,5 +1,8 @@
+const fs = require("fs");
+const path = require("path");
 const { test, expect } = require("@playwright/test");
 const Engine = require("../game-engine");
+const CardImporter = require("../undercard-cards");
 
 function attack(id, slot, damage, extras = {}) {
   return Engine.normalizeCard({
@@ -8,11 +11,19 @@ function attack(id, slot, damage, extras = {}) {
     type: "attack",
     validSlot: slot,
     damage,
+    reversalDamage: extras.reversalDamage || 0,
+    missDamage: extras.missDamage || 0,
     afterUse: extras.afterUse || "discard",
+    effectText: extras.effectText || "",
     onSlotEffect: extras.onSlotEffect || [],
     offSlotEffect: extras.offSlotEffect || [],
     onHitEffects: extras.onHitEffects || [],
-    onPinEffects: extras.onPinEffects || []
+    onPinEffects: extras.onPinEffects || [],
+    onDodgedEffects: extras.onDodgedEffects || [],
+    onDefendedEffects: extras.onDefendedEffects || [],
+    contestModifiers: extras.contestModifiers || [],
+    valueModifiers: extras.valueModifiers || [],
+    immediatePin: Boolean(extras.immediatePin)
   });
 }
 
@@ -23,10 +34,11 @@ function taunt(id, slot, onSlotEffect = [], offSlotEffect = [], extras = {}) {
     type: "taunt",
     validSlot: slot,
     afterUse: extras.afterUse || "discard",
+    effectText: extras.effectText || "",
     onSlotEffect,
     offSlotEffect,
-    onHitEffects: [],
-    onPinEffects: []
+    onHitEffects: extras.onHitEffects || [],
+    onPinEffects: extras.onPinEffects || []
   });
 }
 
@@ -37,6 +49,7 @@ function pin(id, extras = {}) {
     type: "pin",
     validSlot: "any",
     afterUse: extras.afterUse || "discard",
+    effectText: extras.effectText || "",
     onPinEffects: extras.onPinEffects || []
   });
 }
@@ -120,6 +133,22 @@ function continueTurn(state) {
   Engine.continueAfterTurnEnd(state);
 }
 
+test("imports all CSV cards into a shared 48-card deck", () => {
+  const csv = fs.readFileSync(path.join(__dirname, "..", "undercards.csv"), "utf8");
+  const cards = CardImporter.buildCardCatalogFromCsv(csv);
+  const recipe = CardImporter.buildSharedDeckRecipe(cards);
+  const lookup = Object.fromEntries(cards.map((card) => [card.id, card]));
+  const deck = Engine.buildDeckFromRecipe(lookup, recipe);
+
+  expect(cards).toHaveLength(48);
+  expect(recipe).toHaveLength(48);
+  expect(deck).toHaveLength(48);
+  expect(deck.filter((card) => card.type === "pin")).toHaveLength(1);
+  expect(cards.find((card) => card.name === "Ref Distraction")?.flags?.replacementRule).toContain(
+    "cannot lose"
+  );
+});
+
 test("draws to 6 with discard reshuffle", () => {
   const state = makeMatch({
     initiativeWinner: "enemy",
@@ -181,6 +210,7 @@ test("enforces sequential slots without manual slot choice", () => {
     enemyDeck: deckFromOpeningHand([attack("enemy_filler", 1, 4)], () => attack("enemy_pad", 1, 4))
   });
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
 
   expect(state.turn.slots[0].card.name).toBe("slot_two");
@@ -195,6 +225,7 @@ test("supports voluntary stop early", () => {
     enemyDeck: deckFromOpeningHand([attack("e1", 1, 5)], () => attack("enemy_pad", 2, 4))
   });
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
   Engine.stopTurn(state);
 
@@ -222,46 +253,43 @@ test("resolves an on-slot attack with no defence", () => {
     enemyDeck: deckFromOpeningHand([attack("enemy_attack", 1, 5)], () => attack("enemy_pad", 2, 4))
   });
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
 
   expect(state.players.enemy.damage).toBe(6);
   expect(state.turn.slots[0].result).toBe("Landed");
 });
 
-test("gives the defender advantage against an off-slot attack", () => {
+test("gives the defender advantage against an off-slot attack and applies miss damage on a dodge", () => {
   const state = makeMatch({
-    random: [0.75, 0.1],
-    playerDeck: deckFromOpeningHand([attack("offslot_attack", 2, 8)]),
+    random: [0.2, 0.05, 0.95],
+    playerDeck: deckFromOpeningHand([attack("offslot_attack", 2, 8, { missDamage: 3 })]),
     enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
 
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
-  Engine.callDefenceCoin(state, "Heads");
 
   expect(state.phase).toBe(Engine.PHASES.TURN_END);
-  continueTurn(state);
-  expect(state.turn.attackerKey).toBe("enemy");
   expect(state.players.enemy.damage).toBe(0);
-  expect(state.log.some((entry) => entry.includes("turn ends immediately"))).toBeTruthy();
+  expect(state.players.player.damage).toBe(3);
+  expect(state.turn.endReason).toBe("successful_defence");
 });
 
-test("successful defence ends the attacker's turn immediately", () => {
+test("successful reversal applies reversal damage and ends the turn immediately", () => {
   const state = makeMatch({
-    random: [0.1],
-    playerDeck: deckFromOpeningHand([attack("onslot_attack", 1, 8)]),
+    random: [0.05, 0.9],
+    playerDeck: deckFromOpeningHand([attack("onslot_attack", 1, 8, { reversalDamage: 4 })]),
     enemyDeck: deckFromOpeningHand([reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
   });
 
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
-  Engine.callDefenceCoin(state, "Heads");
 
   expect(state.phase).toBe(Engine.PHASES.TURN_END);
-  continueTurn(state);
-  expect(state.turn.attackerKey).toBe("enemy");
   expect(state.players.enemy.damage).toBe(0);
-  expect(state.log.some((entry) => entry.includes("turn ends immediately"))).toBeTruthy();
+  expect(state.players.player.damage).toBe(4);
+  expect(state.turn.endReason).toBe("successful_defence");
 });
 
 test("taunts are undefendable on-slot and off-slot", () => {
@@ -298,7 +326,6 @@ test("playing a pin ends the offensive sequence and enters pin flow", () => {
   });
 
   state.players.enemy.hand = [];
-
   Engine.playOffensiveCard(state, 0, "player");
 
   expect(state.phase).toBe(Engine.PHASES.PINFALL_DRAW);
@@ -306,22 +333,35 @@ test("playing a pin ends the offensive sequence and enters pin flow", () => {
   expect(state.turn.nextSlot).toBe(2);
 });
 
+test("immediate pin attacks start a pin attempt after the attack lands", () => {
+  const state = makeMatch({
+    playerDeck: deckFromOpeningHand([attack("spear", 1, 9, { immediatePin: true }), attack("backup", 2, 4)]),
+    enemyDeck: deckFromOpeningHand([attack("enemy_attack", 1, 5)])
+  });
+
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+
+  expect(state.players.enemy.damage).toBe(9);
+  expect(state.phase).toBe(Engine.PHASES.PINFALL_DRAW);
+  expect(state.pinAttempt?.card.name).toBe("spear");
+  expect(state.turn.playedPin).toBeTruthy();
+});
+
 test("pin reversals can chain repeatedly", () => {
   const state = makeMatch({
-    random: [0.1, 0.1],
+    random: [0.1, 0.9, 0.2, 0.95],
     playerDeck: deckFromOpeningHand([pin("chain_pin"), reversal("player_reversal")]),
     enemyDeck: deckFromOpeningHand([reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
   });
 
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
-  Engine.callDefenceCoin(state, "Heads");
 
   expect(state.phase).toBe(Engine.PHASES.PIN_DEFENCE_DECISION);
   expect(state.resolution.defenderKey).toBe("player");
 
   Engine.prepareDefence(state, 0);
-  Engine.callDefenceCoin(state, "Heads");
 
   expect(state.phase).toBe(Engine.PHASES.PIN_DEFENCE_DECISION);
   expect(state.resolution.defenderKey).toBe("enemy");
@@ -334,6 +374,7 @@ test("Kickout ends the pin and returns drawn cards to the pinfall deck", () => {
     enemyPinfallDeck: pinfallDeck(["Kickout", "Fail", "Fail"])
   });
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
   Engine.drawNextPinfallCard(state);
 
@@ -352,7 +393,6 @@ test("three Fail cards in a row ends the match immediately", () => {
   });
 
   state.players.enemy.hand = [];
-
   Engine.playOffensiveCard(state, 0, "player");
   Engine.drawNextPinfallCard(state);
   Engine.drawNextPinfallCard(state);
@@ -374,14 +414,13 @@ test("adds a Fail card on combo success", () => {
   });
   const failStart = failCount(state, "enemy");
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
 
   expect(failCount(state, "enemy")).toBe(failStart + 1);
   expect(state.phase).toBe(Engine.PHASES.TURN_END);
-  continueTurn(state);
-  expect(state.turn.attackerKey).toBe("enemy");
 });
 
 test("off-slot cards do not count toward combo", () => {
@@ -395,6 +434,7 @@ test("off-slot cards do not count toward combo", () => {
   });
   const failStart = failCount(state, "enemy");
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
@@ -404,9 +444,9 @@ test("off-slot cards do not count toward combo", () => {
 
 test("successful defence prevents combo rewards", () => {
   const state = makeMatch({
-    random: [0.1],
+    random: [0.1, 0.95],
     playerDeck: deckFromOpeningHand([
-      attack("combo_1", 1, 4),
+      attack("combo_1", 1, 4, { missDamage: 1 }),
       attack("combo_2", 2, 4),
       attack("combo_3", 3, 4)
     ]),
@@ -417,12 +457,9 @@ test("successful defence prevents combo rewards", () => {
 
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
-  Engine.callDefenceCoin(state, "Heads");
 
   expect(failCount(state, "enemy")).toBe(failStart);
   expect(state.phase).toBe(Engine.PHASES.TURN_END);
-  continueTurn(state);
-  expect(state.turn.attackerKey).toBe("enemy");
 });
 
 test("failed pin does not reopen the next slot on the same turn", () => {
@@ -437,7 +474,6 @@ test("failed pin does not reopen the next slot on the same turn", () => {
   });
 
   state.players.enemy.hand = [];
-
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
   Engine.drawNextPinfallCard(state);
@@ -459,6 +495,7 @@ test("adds Fail cards immediately at 10, 20, and 30 damage", () => {
   });
   const failStart = failCount(state, "enemy");
 
+  state.players.enemy.hand = [];
   Engine.playOffensiveCard(state, 0, "player");
   expect(failCount(state, "enemy")).toBe(failStart + 1);
 
