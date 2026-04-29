@@ -282,6 +282,43 @@ button[hidden],
     linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
 }
 
+.move-toast {
+  position: fixed;
+  left: 50%;
+  top: min(18%, 120px);
+  z-index: 36;
+  max-width: min(92vw, 440px);
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 202, 74, 0.55);
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: none;
+  color: var(--paper);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 220, 124, 0.12), rgba(0, 0, 0, 0.18)),
+    linear-gradient(180deg, rgba(38, 24, 30, 0.97) 0%, rgba(14, 9, 12, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 12px 28px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, 8px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.move-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 #enemy-summary {
   grid-area: enemy;
 }

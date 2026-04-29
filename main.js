@@ -30,7 +30,8 @@ const app = {
     rollOffTimers: [],
     pinCountRunning: false,
     lastHandledLogIndex: 0,
-    lastShownRollOffId: 0
+    lastShownRollOffId: 0,
+    moveToastTimer: null
   },
   timers: new Set()
 };
@@ -74,6 +75,7 @@ const dom = {
   directorSubtitle: document.getElementById("director-subtitle"),
   directorPrimary: document.getElementById("director-primary"),
   outcomeBanner: document.getElementById("outcome-banner"),
+  moveToast: document.getElementById("move-toast"),
   sequenceCombo: document.getElementById("sequence-combo"),
   sequenceSlots: document.getElementById("sequence-slots"),
   handCards: document.getElementById("hand-cards"),
@@ -266,6 +268,7 @@ function restartMatch() {
 function startMatch(currentApp) {
   clearScheduledCalls(currentApp);
   stopPinCountOverlay();
+  hideMoveToast();
   currentApp.ui.lastHandledLogIndex = 0;
   closeCardModal();
   closeLogModal();
@@ -415,6 +418,7 @@ function scheduleCall(currentApp, delay, callback) {
 function clearScheduledCalls(currentApp) {
   currentApp.timers.forEach((timeoutId) => window.clearTimeout(timeoutId));
   currentApp.timers.clear();
+  hideMoveToast();
 }
 
 function renderApp(currentApp) {
@@ -422,7 +426,7 @@ function renderApp(currentApp) {
     return;
   }
 
-  maybeRunPinCountOverlay(currentApp.state);
+  processNewMatchLog(currentApp.state);
   renderDirector(currentApp.state);
   renderSequence(currentApp.state);
   renderWrestlerPanel(currentApp.state, "player", dom.wrestlerPanels.player);
@@ -433,7 +437,7 @@ function renderApp(currentApp) {
   maybeShowRollOffModal(currentApp.state);
 }
 
-function maybeRunPinCountOverlay(state) {
+function processNewMatchLog(state) {
   const startIndex = Math.max(0, app.ui.lastHandledLogIndex);
   const newEntries = state.log.slice(startIndex);
   app.ui.lastHandledLogIndex = state.log.length;
@@ -443,20 +447,90 @@ function maybeRunPinCountOverlay(state) {
       continue;
     }
 
-    const countMatch = entry.match(/^Count\s+(\d+):\s+(Fail|Kickout)\./i);
-    if (!countMatch) {
-      continue;
-    }
+    maybeHandlePinCountFromLogEntry(entry);
 
-    const card = countMatch[2].toLowerCase();
-    if (card === "kickout") {
-      startPinCountOverlay("KICKOUT!!");
-      continue;
+    const toast = moveToastMessageFromLogEntry(entry);
+    if (toast) {
+      showMoveToast(toast);
     }
-
-    const failCount = Number(countMatch[1] || 1);
-    startPinCountOverlay(String(failCount));
   }
+}
+
+function maybeHandlePinCountFromLogEntry(entry) {
+  const countMatch = entry.match(/^Count\s+(\d+):\s+(Fail|Kickout)\./i);
+  if (!countMatch) {
+    return;
+  }
+
+  const card = countMatch[2].toLowerCase();
+  if (card === "kickout") {
+    startPinCountOverlay("KICKOUT!!");
+    return;
+  }
+
+  const failCount = Number(countMatch[1] || 1);
+  startPinCountOverlay(String(failCount));
+}
+
+function moveToastMessageFromLogEntry(entry) {
+  const playMatch = entry.match(/^(.+?) plays (.+?) into slot \d+/);
+  if (playMatch) {
+    return `${playMatch[1].trim()} used ${playMatch[2].trim()}!`;
+  }
+
+  const attackSuccessSuffix = "'s turn ends immediately.";
+  if (entry.endsWith(attackSuccessSuffix) && /\s(reverses|dodges)\s/.test(entry)) {
+    const head = entry.slice(0, -attackSuccessSuffix.length);
+    const lastClauseBreak = head.lastIndexOf(". ");
+    if (lastClauseBreak !== -1) {
+      const defenceClause = head.slice(0, lastClauseBreak);
+      const clauseMatch = defenceClause.match(/^(.+?) (reverses|dodges) (.+)$/);
+      if (clauseMatch) {
+        const who = clauseMatch[1].trim();
+        return clauseMatch[2] === "reverses" ? `${who} used a reversal!` : `${who} used a dodge!`;
+      }
+    }
+  }
+
+  const pinReverse = entry.match(/^(.+?) reverses the pin onto (.+)\.$/);
+  if (pinReverse) {
+    return `${pinReverse[1].trim()} used a reversal!`;
+  }
+
+  const pinDodge = entry.match(/^(.+?) dodges the pin from (.+)\.$/);
+  if (pinDodge) {
+    return `${pinDodge[1].trim()} used a dodge!`;
+  }
+
+  return null;
+}
+
+function showMoveToast(message) {
+  if (!dom.moveToast) {
+    return;
+  }
+
+  window.clearTimeout(app.ui.moveToastTimer);
+  dom.moveToast.textContent = message;
+  dom.moveToast.hidden = false;
+  dom.moveToast.classList.remove("move-toast--visible");
+  void dom.moveToast.offsetWidth;
+  dom.moveToast.classList.add("move-toast--visible");
+
+  app.ui.moveToastTimer = window.setTimeout(() => {
+    hideMoveToast();
+  }, 2800);
+}
+
+function hideMoveToast() {
+  window.clearTimeout(app.ui.moveToastTimer);
+  app.ui.moveToastTimer = null;
+  if (!dom.moveToast) {
+    return;
+  }
+  dom.moveToast.classList.remove("move-toast--visible");
+  dom.moveToast.hidden = true;
+  dom.moveToast.textContent = "";
 }
 
 function startPinCountOverlay(value) {
