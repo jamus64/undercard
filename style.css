@@ -133,10 +133,9 @@ button[hidden],
     "director"
     "enemy"
     "stage"
-    "action"
     "player"
     "hand";
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
 }
 
 .inspector-panel {
@@ -257,6 +256,7 @@ button[hidden],
 }
 
 .director-title {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -266,6 +266,7 @@ button[hidden],
 
 .director-subtitle {
   margin-top: 4px;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   color: var(--ink-soft);
   font-size: 0.84rem;
 }
@@ -281,13 +282,50 @@ button[hidden],
     linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
 }
 
+.move-toast {
+  position: fixed;
+  left: 50%;
+  top: min(18%, 120px);
+  z-index: 36;
+  max-width: min(92vw, 440px);
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 202, 74, 0.55);
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: none;
+  color: var(--paper);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 220, 124, 0.12), rgba(0, 0, 0, 0.18)),
+    linear-gradient(180deg, rgba(38, 24, 30, 0.97) 0%, rgba(14, 9, 12, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 12px 28px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, 8px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.move-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 #enemy-summary {
   grid-area: enemy;
 }
 
 #player-summary {
   grid-area: player;
-  display: none;
+  display: grid;
 }
 
 .wrestler-block {
@@ -443,7 +481,7 @@ button[hidden],
 .sequence-panel {
   grid-area: stage;
   min-height: 0;
-  height: min(28dvh, 214px);
+  height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   border-color: var(--panel-border-strong);
@@ -484,10 +522,22 @@ button[hidden],
 
 .sequence-slots {
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 5px 8px 8px;
+  overflow: hidden;
+}
+
+.sequence-slots__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .sequence-track {
@@ -496,18 +546,99 @@ button[hidden],
   gap: 6px;
 }
 
-.sequence-track__slot {
-  min-height: 42px;
-  padding: 6px;
+.sequence-continue {
+  justify-self: center;
+  min-width: 140px;
+  border: 2px solid rgba(9, 4, 4, 0.75);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 rgba(8, 4, 4, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background:
+    linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
+  color: #201106;
+}
+
+.sequence-footer {
+  flex-shrink: 0;
   display: grid;
-  gap: 4px;
-  align-content: center;
+  gap: 8px;
+}
+
+.sequence-controls {
+  min-height: 52px;
+  display: grid;
+  align-items: start;
+}
+
+.sequence-action-buttons {
+  width: 100%;
+}
+
+.sequence-controls .sequence-action-buttons {
+  grid-template-columns: 1fr;
+}
+
+.sequence-controls .action-button,
+.sequence-controls .sequence-continue {
+  justify-self: center;
+  width: min(220px, 100%);
+  min-width: 140px;
+  min-height: auto;
+  border: 2px solid rgba(9, 4, 4, 0.75);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 rgba(8, 4, 4, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background:
+    linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
+  color: #201106;
+}
+
+.sequence-controls .action-button--dodge,
+.sequence-controls .action-button--reversal,
+.sequence-controls .action-button--take,
+.sequence-controls .action-button--primary,
+.sequence-controls .action-button--default {
+  background:
+    linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
+  color: #201106;
+}
+
+.sequence-track__slot {
+  min-height: 266px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
   border: 2px solid rgba(255, 202, 74, 0.32);
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.14)),
     rgba(30, 20, 32, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sequence-track__image {
+  width: 100%;
+  max-height: 222px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 202, 74, 0.45);
+  background: rgba(18, 11, 16, 0.7);
 }
 
 .sequence-track__slot--current {
@@ -539,15 +670,43 @@ button[hidden],
   font-weight: 900;
 }
 
-.sequence-track__label {
-  font-size: 0.68rem;
+.sequence-track__title {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 1rem;
   font-weight: 900;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: none;
+  color: var(--paper);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  overflow-wrap: anywhere;
+}
+
+.sequence-track__state {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--gold);
+}
+
+.sequence-track__chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sequence-track__chip {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 202, 74, 0.5);
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--ink-soft);
+  background: rgba(10, 6, 7, 0.36);
 }
 
 .sequence-focus {
@@ -635,11 +794,11 @@ button[hidden],
   border-radius: 12px;
   background:
     linear-gradient(180deg, #ffe078 0%, #f8c73e 100%);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.9rem;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: #241106;
 }
 
@@ -656,23 +815,6 @@ button[hidden],
   display: none;
 }
 
-.action-panel {
-  grid-area: action;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  border-color: var(--panel-border-strong);
-  background:
-    linear-gradient(180deg, rgba(33, 48, 111, 0.94) 0%, rgba(19, 24, 56, 0.96) 100%);
-}
-
-.action-panel[data-mode="defense"] {
-  border-color: rgba(239, 61, 124, 0.86);
-}
-
-.action-panel .panel-row {
-  display: none;
-}
-
 .action-body,
 .log-modal__body,
 .card-modal__stats,
@@ -680,55 +822,6 @@ button[hidden],
   padding: 8px 10px;
 }
 
-.action-body {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-
-.app-content[data-mode="offense"] .action-body {
-  padding-top: 7px;
-  padding-bottom: 7px;
-  gap: 5px;
-}
-
-.action-phase {
-  font-size: 0.66rem;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-.action-title {
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: clamp(1rem, 4vw, 1.24rem);
-  line-height: 0.96;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--paper);
-}
-
-.action-text {
-  font-size: 0.84rem;
-  line-height: 1.2;
-  color: var(--ink);
-}
-
-.action-outcome {
-  font-size: 0.74rem;
-  color: var(--ink-soft);
-}
-
-.app-content[data-mode="offense"] .action-title {
-  font-size: clamp(0.92rem, 3.7vw, 1.08rem);
-}
-
-.app-content[data-mode="offense"] .action-text,
-.app-content[data-mode="offense"] .action-outcome {
-  font-size: 0.72rem;
-  line-height: 1.15;
-}
 
 .action-buttons {
   display: grid;
@@ -773,7 +866,8 @@ button[hidden],
   grid-area: hand;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 128px;
+  min-height: 196px;
+  height: 196px;
   border-color: rgba(255, 202, 74, 0.54);
   background:
     linear-gradient(180deg, rgba(255, 217, 120, 0.12), rgba(0, 0, 0, 0.1)),
@@ -782,14 +876,12 @@ button[hidden],
 
 .hand-panel .panel-row {
   padding: 5px 7px 4px;
-  display: grid;
-  gap: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   border-bottom: 1px solid rgba(255, 202, 74, 0.2);
   background: transparent;
-}
-
-.hand-panel .panel-title h2 {
-  margin-bottom: 3px;
 }
 
 .hand-filters {
@@ -818,21 +910,47 @@ button[hidden],
   gap: 6px;
 }
 
+.hand-panel__info {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border-bottom: 0;
+}
+
 .hand-panel__pin-summary {
   font-size: 0.64rem;
   color: var(--gold);
 }
 
-.hand-grid {
+.hand-menu-button {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  place-items: center;
+}
+
+.hand-grid {
+  display: flex;
+  align-items: stretch;
   gap: 4px;
   padding: 5px 7px 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 0;
 }
 
 .hand-card {
-  min-width: 0;
-  aspect-ratio: 0.68;
+  flex: 0 0 88px;
+  width: 88px;
+  height: 132px;
   border: 2px solid rgba(255, 202, 74, 0.58);
   border-radius: 16px;
   background:
@@ -865,8 +983,8 @@ button[hidden],
 
 .hand-card__front {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 4px;
+  grid-template-rows: auto auto auto auto;
+  gap: 3px;
   height: 100%;
 }
 
@@ -878,11 +996,11 @@ button[hidden],
 
 .hand-card__title {
   margin: 0;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.68rem;
-  line-height: 0.96;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--paper);
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -892,7 +1010,7 @@ button[hidden],
 }
 
 .hand-card__value {
-  margin-top: auto;
+  margin-top: 2px;
   font-family: Impact, "Arial Black", sans-serif;
   font-size: 0.74rem;
   line-height: 1;
@@ -938,36 +1056,6 @@ button[hidden],
   color: var(--ink-muted);
 }
 
-.app-content[data-mode="defense"] .hand-panel,
-.app-content[data-mode="coin-call"] .hand-panel,
-.app-content[data-mode="coin-reveal"] .hand-panel,
-.app-content[data-mode="pin"] .hand-panel,
-.app-content[data-mode="step"] .hand-panel,
-.app-content[data-mode="wait"] .hand-panel,
-.app-content[data-mode="turn-end"] .hand-panel {
-  min-height: 60px;
-}
-
-.app-content[data-mode="defense"] .hand-grid,
-.app-content[data-mode="coin-call"] .hand-grid,
-.app-content[data-mode="coin-reveal"] .hand-grid,
-.app-content[data-mode="pin"] .hand-grid,
-.app-content[data-mode="step"] .hand-grid,
-.app-content[data-mode="wait"] .hand-grid,
-.app-content[data-mode="turn-end"] .hand-grid {
-  display: none;
-}
-
-.app-content[data-mode="defense"] .hand-panel .panel-row,
-.app-content[data-mode="coin-call"] .hand-panel .panel-row,
-.app-content[data-mode="coin-reveal"] .hand-panel .panel-row,
-.app-content[data-mode="pin"] .hand-panel .panel-row,
-.app-content[data-mode="step"] .hand-panel .panel-row,
-.app-content[data-mode="wait"] .hand-panel .panel-row,
-.app-content[data-mode="turn-end"] .hand-panel .panel-row {
-  border-bottom: 0;
-}
-
 .startup-error {
   display: grid;
   gap: 8px;
@@ -979,15 +1067,66 @@ button[hidden],
 }
 
 .log-modal,
-.card-modal {
+.card-modal,
+.rolloff-modal,
+.hand-menu-modal {
   position: fixed;
   inset: 0;
   display: grid;
   z-index: 20;
 }
 
+.pin-count-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.pin-count-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 2, 6, 0.78);
+}
+
+.pin-count-overlay__value {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: clamp(4rem, 24vw, 11rem);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
+}
+
+.pin-count-overlay__value--animate {
+  animation: pin-count-zoom 330ms ease-out;
+}
+
+@keyframes pin-count-zoom {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+}
+
 .log-modal__backdrop,
-.card-modal__backdrop {
+.card-modal__backdrop,
+.rolloff-modal__backdrop,
+.hand-menu-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
@@ -996,19 +1135,22 @@ button[hidden],
 }
 
 .log-modal__panel,
-.card-modal__panel {
+.card-modal__panel,
+.rolloff-modal__panel,
+.hand-menu-modal__panel {
   position: relative;
   z-index: 1;
-  align-self: end;
-  width: 100%;
+  align-self: center;
+  justify-self: center;
+  width: min(760px, calc(100vw - 28px));
   max-height: calc(100dvh - 28px);
   overflow: auto;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  border-radius: 22px;
 }
 
 .log-modal__header,
-.card-modal__header {
+.card-modal__header,
+.hand-menu-modal__header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1018,11 +1160,32 @@ button[hidden],
 }
 
 .log-modal__header h2,
-.card-modal__title {
+.card-modal__title,
+.hand-menu-modal__header h2 {
   font-family: Impact, "Arial Black", sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--gold);
+}
+
+.hand-menu-modal__header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.hand-menu-modal__actions {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.hand-menu-modal__actions .primary-button,
+.hand-menu-modal__actions .secondary-button {
+  width: 100%;
+}
+
+.hand-menu-modal__actions .secondary-button {
+  font-size: 0.92rem;
 }
 
 .card-modal__type,
@@ -1057,6 +1220,123 @@ button[hidden],
   width: 100%;
 }
 
+.rolloff-modal__panel {
+  align-self: center;
+  justify-self: center;
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  border-radius: 22px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.card-modal__panel {
+  width: min(480px, calc(100vw - 28px));
+}
+
+.hand-menu-modal__panel {
+  width: min(440px, calc(100vw - 28px));
+}
+
+.rolloff-modal__title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.2rem, 6vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rolloff-modal__fighter {
+  margin: 0;
+  padding: 10px 8px;
+  border: 2px solid rgba(255, 202, 74, 0.45);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 220, 124, 0.14), rgba(0, 0, 0, 0.22)),
+    rgba(30, 20, 32, 0.78);
+  text-align: center;
+}
+
+.rolloff-modal__name {
+  margin: 0;
+  font-size: clamp(0.95rem, 4vw, 1.25rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+}
+
+.rolloff-modal__roll {
+  margin: 6px 0 0;
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 1.55rem;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__roll-value {
+  display: inline-block;
+  min-width: 1.2em;
+}
+
+.rolloff-modal__roll-value--muted {
+  color: rgba(192, 192, 192, 0.85);
+}
+
+.rolloff-modal__roll-separator {
+  display: inline-block;
+  margin: 0 0.24em;
+  color: rgba(245, 224, 170, 0.9);
+}
+
+.rolloff-modal__result {
+  margin: 0;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__fighter--loser {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.rolloff-modal__fighter--winner {
+  animation: rolloff-winner-wiggle 460ms ease-in-out 5;
+}
+
+@keyframes rolloff-winner-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-2deg) scale(1.02);
+  }
+  40% {
+    transform: rotate(2deg) scale(1.02);
+  }
+  60% {
+    transform: rotate(-1deg) scale(1.01);
+  }
+  80% {
+    transform: rotate(1deg) scale(1.01);
+  }
+}
+
 #match-log-list,
 .recent-list {
   margin: 0;
@@ -1066,6 +1346,16 @@ button[hidden],
 #match-log-list li + li,
 .recent-list li + li {
   margin-top: 8px;
+}
+
+#match-log-list code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
 }
 
 @media (min-width: 820px) {
@@ -1091,10 +1381,9 @@ button[hidden],
     grid-template-areas:
       "director director"
       "enemy stage"
-      "enemy action"
       "player hand";
     grid-template-columns: 320px minmax(0, 1fr);
-    grid-template-rows: auto minmax(320px, 1fr) auto auto;
+    grid-template-rows: auto minmax(320px, 1fr) auto;
     align-items: stretch;
   }
 
@@ -1131,7 +1420,8 @@ button[hidden],
   }
 
   .sequence-panel {
-    min-height: 360px;
+    min-height: 0;
+    height: 100%;
   }
 
   .action-panel {
@@ -1139,11 +1429,12 @@ button[hidden],
   }
 
   .hand-panel {
-    min-height: 260px;
+    min-height: 210px;
+    height: 210px;
   }
 
   .hand-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    display: flex;
   }
 
   .recent-panel {
@@ -1151,7 +1442,9 @@ button[hidden],
   }
 
   .log-modal__panel,
-  .card-modal__panel {
+  .card-modal__panel,
+  .rolloff-modal__panel,
+  .hand-menu-modal__panel {
     align-self: center;
     justify-self: center;
     width: min(760px, calc(100vw - 48px));
@@ -1161,5 +1454,13 @@ button[hidden],
 
   .card-modal__panel {
     width: min(480px, calc(100vw - 48px));
+  }
+
+  .rolloff-modal__panel {
+    width: min(520px, calc(100vw - 48px));
+  }
+
+  .hand-menu-modal__panel {
+    width: min(440px, calc(100vw - 48px));
   }
 }

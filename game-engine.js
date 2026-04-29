@@ -10,8 +10,8 @@
   const MAX_SEQUENCE_SLOTS = 3;
   const DAMAGE_PER_FAIL = 10;
   const PIN_DRAW_COUNT = 3;
-  const STARTING_PIN_FAILS = 3;
-  const STARTING_PIN_KICKOUTS = 7;
+  const STARTING_PIN_FAILS = 7;
+  const STARTING_PIN_KICKOUTS = 5;
   const COIN_SIDES = ["Heads", "Tails"];
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
@@ -65,8 +65,10 @@
         reason: ""
       },
       meta: {
-        random
-      }
+        random,
+        rollOffId: 0
+      },
+      lastDefenceRoll: null
     };
 
     transitionTo(state, PHASES.MATCH_START);
@@ -389,39 +391,70 @@
     return state;
   }
 
-  function callDefenceCoin(state, call) {
+  function callDefenceCoin(state) {
     assertActiveMatch(state);
     if (!state.resolution || !state.resolution.awaitingCoinCall || !state.resolution.defence) {
       throw new Error("There is no defence coin call to resolve.");
     }
 
-    if (!COIN_SIDES.includes(call)) {
-      throw new Error("Coin call must be Heads or Tails.");
-    }
-
     const defence = state.resolution.defence;
-    defence.call = call;
-    defence.flips = flipCoins(
-      state,
-      defence.coinMode === "normal" ? 1 : 2
-    );
-    defence.success = evaluateCoinResult(defence.flips, call, defence.coinMode);
+    const attackerKey = state.resolution.attackerKey;
+    const defenderKey = state.resolution.defenderKey;
+    const rollCount = defence.coinMode === "normal" ? 1 : 2;
+    let attackerRoll = 0;
+    let defenderRoll = 0;
+    let defenderRolls = [];
+
+    do {
+      attackerRoll = rollD20(state);
+      defenderRolls = Array.from({ length: rollCount }, () => rollD20(state));
+      defenderRoll =
+        defence.coinMode === "advantage"
+          ? Math.max(...defenderRolls)
+          : defence.coinMode === "disadvantage"
+            ? Math.min(...defenderRolls)
+            : defenderRolls[0];
+    } while (attackerRoll === defenderRoll);
+
+    defence.call = null;
+    defence.flips = defenderRolls.slice();
+    defence.attackerRoll = attackerRoll;
+    defence.defenderRoll = defenderRoll;
+    defence.success = defenderRoll > attackerRoll;
 
     updateSlotDefence(state, {
       actorKey: defence.actorKey,
       choice: defence.choice,
       cardName: defence.card.name,
-      call,
-      flips: defence.flips.slice(),
+      call: null,
+      flips: defenderRolls.slice(),
+      attackerRoll,
+      defenderRoll,
       success: defence.success,
       coinMode: defence.coinMode
     });
 
-    const defender = getPlayer(state, defence.actorKey);
+    const defender = getPlayer(state, defenderKey);
+    const attacker = getPlayer(state, attackerKey);
+    const defenderRollText =
+      defence.coinMode === "normal"
+        ? String(defenderRoll)
+        : `${defenderRoll} (from ${defenderRolls.join(" / ")})`;
     addLog(
       state,
-      `${defender.name} calls ${call} with ${defence.card.name}. Coins: ${defence.flips.join(" / ")}.`
+      `${attacker.name} rolls ${attackerRoll}. ${defender.name} rolls ${defenderRollText} with ${defence.card.name}.`
     );
+    state.lastDefenceRoll = {
+      id: (state.meta.rollOffId += 1),
+      attackerName: attacker.name,
+      defenderName: defender.name,
+      attackerRoll,
+      defenderRoll,
+      defenderRolls: defenderRolls.slice(),
+      mode: defence.coinMode,
+      defenceChoice: defence.choice,
+      winnerName: defence.success ? defender.name : attacker.name
+    };
 
     state.resolution.awaitingCoinCall = false;
 
@@ -1020,8 +1053,7 @@
 
     return {
       type: "card",
-      handIndex: chosen.handIndex,
-      call: nextCoinSide(state)
+      handIndex: chosen.handIndex
     };
   }
 
@@ -1053,6 +1085,7 @@
     return {
       id: String(card.id),
       name: String(card.name),
+      image: card.image ? String(card.image) : "",
       type: card.type,
       rarity: card.rarity || "common",
       validSlot: card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null),
@@ -1189,6 +1222,47 @@
     }
 
     state.log.push(message);
+    state.log.push(`LOG_STATE ${JSON.stringify(buildLogStateSnapshot(state, message))}`);
+  }
+
+  function buildLogStateSnapshot(state, message) {
+    return {
+      event: message,
+      phase: state.phase,
+      turn: state.turn ? state.turn.number : null,
+      wrestlers: {
+        player: buildWrestlerLogState(state.players.player),
+        enemy: buildWrestlerLogState(state.players.enemy)
+      }
+    };
+  }
+
+  function buildWrestlerLogState(player) {
+    const summary = summarizePinfallDeck(player.pinfallDeck);
+    return {
+      name: player.name,
+      hand: player.hand.map((card) => card.name),
+      pinfall: {
+        fail: summary.fail,
+        kickout: summary.kickout,
+        total: player.pinfallDeck.length
+      }
+    };
+  }
+
+  function summarizePinfallDeck(pinfallDeck) {
+    return pinfallDeck.reduce(
+      (accumulator, entry) => {
+        const value = String(entry || "").toLowerCase();
+        if (value.startsWith("fail")) {
+          accumulator.fail += 1;
+        } else if (value.startsWith("kickout")) {
+          accumulator.kickout += 1;
+        }
+        return accumulator;
+      },
+      { fail: 0, kickout: 0 }
+    );
   }
 
   function shuffleArray(items, random) {
@@ -1237,14 +1311,18 @@
 
   function buildCoinModeDescription(mode) {
     if (mode === "advantage") {
-      return "Two flips. One match succeeds.";
+      return "Defender rolls 2d20 and keeps the higher roll.";
     }
 
     if (mode === "disadvantage") {
-      return "Two flips. Both must match.";
+      return "Defender rolls 2d20 and keeps the lower roll.";
     }
 
-    return "One flip decides it.";
+    return "Both players roll 1d20. Highest roll wins.";
+  }
+
+  function rollD20(state) {
+    return Math.max(1, Math.min(20, Math.floor(nextRandom(state) * 20) + 1));
   }
 
   function pluralize(word, count) {

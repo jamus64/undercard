@@ -1,0 +1,35 @@
+,,,ATK,RVS,MSS,,,,,
+#,Card Name,Slot,Attack Damage,Reverse Damage,Miss Damage,Stun,Rarity,Rarity Symbol,Category,Effect
+1,Clothesline,1/3,3,5,1,,Common,●,Brawler,"When played in Slot 1, defender has Disadvantage."
+2,Spear,1/3,9,7,7,,Special,❋,Brawler,"On success, immediately Pin."
+3,Big Boot,2/3,6,3,3,,Uncommon,◆,Brawler,
+4,Headbutt,2/3,5,6,6,,Uncommon,◆,Brawler,"On success, attacker takes 3 self-damage."
+5,Wild Swing,1/2/3,4,4,4,,Rare,★,Brawler,"If defended, attacker is Stunned."
+6,Eye Rake,1,1,3,2,Y,Common,●,Heel,"On success, apply Stun. On fail, add 1 Fail to own deck."
+7,Chair Shot,3,9,5,2,Y,Special,❋,Heel,"On success, immediately Pin. On fail, add 2 Fails to own deck."
+8,Cheap Shot,1/2,3,4,3,Y,Uncommon,◆,Heel,"On success, opponent discards 1 at random. On fail, attacker discards 1 at random."
+9,Ref Distraction,1/2,0,0,0,,Uncommon,◆,Heel,"The next Heel move you play this turn ignores its negative fail effect. On fail, add 1 Fail to your own Pinfall deck."
+10,Low Blow,2/3,4,2,3,Y,Rare,★,Heel,"On success, Stun + opponent discards 1. On fail, add 2 Fails to own deck."
+11,Hurricanrana,1,2,1,3,,Uncommon,◆,High-Flyer,
+12,450 Splash,3,8,3,7,,Rare,★,High-Flyer,"On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard 2 at random."
+13,Shooting Star Press,3,8,3,7,,Special,❋,High-Flyer,"On success, immediately Pin."
+14,Elbow Drop,2/3,6,4,6,,Uncommon,◆,High-Flyer,
+15,Frog Splash,2/3,6,3,7,,Uncommon,◆,High-Flyer,"If played after a Taunt, defender has Disadvantage."
+16,Second Rope Elbow Drop,2/3,7,2,4,,Rare,★,High-Flyer,
+17,German Suplex,2,5,5,2,,Uncommon,◆,Power,"On success, add 1 Fail to opponent’s Pinfall deck."
+18,Suplex,2,3,5,2,,Common,●,Power,"On success, add 1 Fail to opponent’s Pinfall deck."
+19,Bear Hug,2,3,2,2,Y,Common,●,Power,"Submission. On success, add 1 Fail to opponent’s Pinfall deck."
+20,Chokeslam,3,9,6,6,,Special,❋,Power,"On success, immediately Pin."
+21,Powerbomb,3,7,6,6,Y,Rare,★,Power,"On success, add 1 Kickout! to your Pinfall deck."
+22,Spinebuster,2/3,6,5,3,,Uncommon,◆,Power,
+23,Chop,1,1,1,0,,Common,●,Striker,
+24,Jab,1,1,1,0,,Common,●,Striker,Next Attack this turn gains +1 ATK.
+25,Sweet Chin Music,3,9,5,7,,Special,❋,Striker,"On success, immediately Pin."
+26,Body Blow,1/2,3,2,2,,Common,●,Striker,
+27,Dropkick,2/3,4,3,4,,Uncommon,◆,Striker,"If played in Slot 3, +2 ATK."
+28,Trip,1,1,1,1,,Rare,★,Technical,"On success, opponent discards 1 at random."
+29,Armbar,2,3,2,1,,Uncommon,◆,Technical,"On success, add 1 Fail to opponent’s Pinfall deck."
+30,Figure Four,3,6,4,2,Y,Special,❋,Technical,"On success, add 3 Fails to opponent’s Pinfall deck."
+31,Sharpshooter,3,6,4,2,Y,Rare,★,Technical,"On success, Stun + opponent discards 1."
+32,Irish Whip,1/2,0,0,0,,Common,●,Technical,Next Attack this turn gains +2 ATK.
+33,Sleeper Hold,2/3,2,2,0,Y,Common,●,Technical,"On success, apply Stun."
