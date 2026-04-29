@@ -574,15 +574,18 @@ function buildSequenceFooter(state, actionButtons) {
     footer.appendChild(buildSequenceEventCard(eventModel));
   }
 
+  const controls = document.createElement("div");
+  controls.className = "sequence-controls";
+
   if (actionButtons.length > 0) {
-    footer.appendChild(buildSequenceActionButtons(actionButtons));
+    controls.appendChild(buildSequenceActionButtons(actionButtons));
+    footer.appendChild(controls);
     return footer;
   }
 
   const continueButton = buildSequenceContinueButton(state);
-  if (!continueButton.hidden) {
-    footer.appendChild(continueButton);
-  }
+  controls.appendChild(continueButton);
+  footer.appendChild(controls);
 
   return footer;
 }

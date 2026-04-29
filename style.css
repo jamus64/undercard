@@ -256,6 +256,7 @@ button[hidden],
 }
 
 .director-title {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -265,6 +266,7 @@ button[hidden],
 
 .director-subtitle {
   margin-top: 4px;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   color: var(--ink-soft);
   font-size: 0.84rem;
 }
@@ -518,8 +520,52 @@ button[hidden],
   gap: 8px;
 }
 
+.sequence-controls {
+  min-height: 52px;
+  display: grid;
+  align-items: start;
+}
+
 .sequence-action-buttons {
   width: 100%;
+}
+
+.sequence-controls .sequence-action-buttons {
+  grid-template-columns: 1fr;
+}
+
+.sequence-controls .action-button,
+.sequence-controls .sequence-continue {
+  justify-self: center;
+  width: min(220px, 100%);
+  min-width: 140px;
+  min-height: auto;
+  border: 2px solid rgba(9, 4, 4, 0.75);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 rgba(8, 4, 4, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background:
+    linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
+  color: #201106;
+}
+
+.sequence-controls .action-button--dodge,
+.sequence-controls .action-button--reversal,
+.sequence-controls .action-button--take,
+.sequence-controls .action-button--primary,
+.sequence-controls .action-button--default {
+  background:
+    linear-gradient(180deg, #ffd864 0%, #e2a723 100%);
+  color: #201106;
 }
 
 .sequence-pinfall-pop {
@@ -550,10 +596,10 @@ button[hidden],
 
 .sequence-pinfall-pop__value {
   margin-top: 4px;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 1.08rem;
-  line-height: 1;
-  text-transform: uppercase;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.08;
+  text-transform: none;
   color: var(--gold);
 }
 
@@ -607,22 +653,23 @@ button[hidden],
 }
 
 .sequence-track__title {
-  font-family: Impact, "Arial Black", sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   font-size: 1rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
-  line-height: 0.95;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: none;
   color: var(--paper);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
   overflow-wrap: anywhere;
 }
 
 .sequence-track__state {
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--gold);
 }
 
