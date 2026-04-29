@@ -10,8 +10,8 @@
   const MAX_SEQUENCE_SLOTS = 3;
   const DAMAGE_PER_FAIL = 10;
   const PIN_DRAW_COUNT = 3;
-  const STARTING_PIN_FAILS = 3;
-  const STARTING_PIN_KICKOUTS = 7;
+  const STARTING_PIN_FAILS = 7;
+  const STARTING_PIN_KICKOUTS = 5;
   const COIN_SIDES = ["Heads", "Tails"];
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
@@ -1189,6 +1189,47 @@
     }
 
     state.log.push(message);
+    state.log.push(`LOG_STATE ${JSON.stringify(buildLogStateSnapshot(state, message))}`);
+  }
+
+  function buildLogStateSnapshot(state, message) {
+    return {
+      event: message,
+      phase: state.phase,
+      turn: state.turn ? state.turn.number : null,
+      wrestlers: {
+        player: buildWrestlerLogState(state.players.player),
+        enemy: buildWrestlerLogState(state.players.enemy)
+      }
+    };
+  }
+
+  function buildWrestlerLogState(player) {
+    const summary = summarizePinfallDeck(player.pinfallDeck);
+    return {
+      name: player.name,
+      hand: player.hand.map((card) => card.name),
+      pinfall: {
+        fail: summary.fail,
+        kickout: summary.kickout,
+        total: player.pinfallDeck.length
+      }
+    };
+  }
+
+  function summarizePinfallDeck(pinfallDeck) {
+    return pinfallDeck.reduce(
+      (accumulator, entry) => {
+        const value = String(entry || "").toLowerCase();
+        if (value.startsWith("fail")) {
+          accumulator.fail += 1;
+        } else if (value.startsWith("kickout")) {
+          accumulator.kickout += 1;
+        }
+        return accumulator;
+      },
+      { fail: 0, kickout: 0 }
+    );
   }
 
   function shuffleArray(items, random) {

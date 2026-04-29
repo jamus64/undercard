@@ -25,7 +25,11 @@ const app = {
   isReady: false,
   state: null,
   ui: {
-    handFilter: "usable"
+    pendingContinueAction: null,
+    pendingEnemyCoinCall: null,
+    pinCountTimers: [],
+    pinCountRunning: false,
+    lastHandledLogIndex: 0
   },
   timers: new Set()
 };
@@ -49,20 +53,15 @@ const dom = {
   cardModalReason: document.getElementById("card-modal-reason"),
   cardModalEffect: document.getElementById("card-modal-effect"),
   cardModalAction: document.getElementById("card-modal-action"),
+  pinCountOverlay: document.getElementById("pin-count-overlay"),
+  pinCountValue: document.getElementById("pin-count-value"),
   directorTitle: document.getElementById("director-title"),
   directorSubtitle: document.getElementById("director-subtitle"),
   directorPrimary: document.getElementById("director-primary"),
   outcomeBanner: document.getElementById("outcome-banner"),
   sequenceCombo: document.getElementById("sequence-combo"),
   sequenceSlots: document.getElementById("sequence-slots"),
-  actionTitle: document.getElementById("action-title"),
-  actionText: document.getElementById("action-text"),
-  actionOutcome: document.getElementById("action-outcome"),
-  actionPhase: document.getElementById("action-phase"),
-  actionButtons: document.getElementById("action-buttons"),
-  actionPanel: document.querySelector(".action-panel"),
   handCards: document.getElementById("hand-cards"),
-  handFilters: document.getElementById("hand-filters"),
   drawPileCount: document.getElementById("draw-pile-count"),
   playerPinSummary: document.getElementById("player-pin-summary"),
   endTurnButton: document.getElementById("end-turn-button"),
@@ -105,22 +104,6 @@ function bindEvents() {
 
     Engine.stopTurn(app.state);
     refreshApp();
-  });
-
-  dom.handFilters?.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const filter = target.getAttribute("data-filter");
-    if (!filter) {
-      return;
-    }
-
-    app.ui.handFilter = filter;
-    syncHandFilterChips(filter);
-    renderHand(app);
   });
 
   document.addEventListener("keydown", (event) => {
@@ -251,9 +234,10 @@ function restartMatch() {
 
 function startMatch(currentApp) {
   clearScheduledCalls(currentApp);
+  stopPinCountOverlay();
+  currentApp.ui.lastHandledLogIndex = 0;
   closeCardModal();
   closeLogModal();
-  resetHandFilter("usable");
 
   const matchup = pickRandomMatchup();
   currentApp.state = Engine.createMatch({
@@ -299,26 +283,26 @@ function cloneEffects(effects) {
 }
 
 function refreshApp() {
-  renderApp(app);
   maybeRunAiFlow();
+  renderApp(app);
 }
 
 function maybeRunAiFlow() {
   clearScheduledCalls(app);
+  app.ui.pendingContinueAction = null;
 
   if (!app.state || app.state.match.over) {
     return;
   }
 
   if (app.state.phase === Engine.PHASES.TURN_END) {
-    scheduleCall(app, AI_STEP_DELAY, () => {
+    app.ui.pendingContinueAction = () => {
       if (!app.state || app.state.match.over || app.state.phase !== Engine.PHASES.TURN_END) {
         return;
       }
-
       Engine.continueAfterTurnEnd(app.state);
       refreshApp();
-    });
+    };
     return;
   }
 
@@ -327,7 +311,7 @@ function maybeRunAiFlow() {
   }
 
   if (app.state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION && app.state.turn.attackerKey === "enemy") {
-    scheduleCall(app, AI_STEP_DELAY, runEnemyOffenseStep);
+    app.ui.pendingContinueAction = runEnemyOffenseStep;
     return;
   }
 
@@ -340,7 +324,12 @@ function maybeRunAiFlow() {
       app.state.phase === Engine.PHASES.PIN_DEFENCE_DECISION) &&
     app.state.resolution.awaitingDefenceChoice
   ) {
-    scheduleCall(app, AI_STEP_DELAY, runEnemyDefenseStep);
+    app.ui.pendingContinueAction = runEnemyDefenseStep;
+    return;
+  }
+
+  if (app.state.resolution.awaitingCoinCall) {
+    app.ui.pendingContinueAction = runEnemyCoinCallStep;
   }
 }
 
@@ -381,16 +370,19 @@ function runEnemyDefenseStep() {
   }
 
   Engine.prepareDefence(app.state, decision.handIndex);
-  renderApp(app);
+  app.ui.pendingEnemyCoinCall = decision.call;
+  refreshApp();
+}
 
-  scheduleCall(app, AI_STEP_DELAY, () => {
-    if (!app.state || !app.state.resolution || !app.state.resolution.awaitingCoinCall) {
-      return;
-    }
+function runEnemyCoinCallStep() {
+  if (!app.state || !app.state.resolution || !app.state.resolution.awaitingCoinCall) {
+    app.ui.pendingEnemyCoinCall = null;
+    return;
+  }
 
-    Engine.callDefenceCoin(app.state, decision.call);
-    refreshApp();
-  });
+  Engine.callDefenceCoin(app.state, app.ui.pendingEnemyCoinCall || "Heads");
+  app.ui.pendingEnemyCoinCall = null;
+  refreshApp();
 }
 
 function scheduleCall(currentApp, delay, callback) {
@@ -412,14 +404,82 @@ function renderApp(currentApp) {
     return;
   }
 
+  maybeRunPinCountOverlay(currentApp.state);
   renderDirector(currentApp.state);
   renderSequence(currentApp.state);
-  renderActionPanel(currentApp.state);
   renderWrestlerPanel(currentApp.state, "player", dom.wrestlerPanels.player);
   renderWrestlerPanel(currentApp.state, "enemy", dom.wrestlerPanels.enemy);
   renderHand(currentApp);
   renderRecentEvents(currentApp.state);
   renderMatchLog(currentApp.state);
+}
+
+function maybeRunPinCountOverlay(state) {
+  const startIndex = Math.max(0, app.ui.lastHandledLogIndex);
+  const newEntries = state.log.slice(startIndex);
+  app.ui.lastHandledLogIndex = state.log.length;
+
+  for (const entry of newEntries) {
+    if (entry.startsWith("LOG_STATE ")) {
+      continue;
+    }
+
+    const countMatch = entry.match(/^Count\s+(\d+):\s+(Fail|Kickout)\./i);
+    if (!countMatch) {
+      continue;
+    }
+
+    const card = countMatch[2].toLowerCase();
+    if (card === "kickout") {
+      startPinCountOverlay("KICKOUT!!");
+      continue;
+    }
+
+    const failCount = Number(countMatch[1] || 1);
+    startPinCountOverlay(String(failCount));
+  }
+}
+
+function startPinCountOverlay(value) {
+  if (!dom.pinCountOverlay || !dom.pinCountValue) {
+    return;
+  }
+
+  stopPinCountOverlay();
+  app.ui.pinCountRunning = true;
+  dom.pinCountOverlay.hidden = false;
+
+  setPinCountOverlayValue(value);
+
+  app.ui.pinCountTimers.push(
+    window.setTimeout(() => {
+      app.ui.pinCountRunning = false;
+      dom.pinCountOverlay.hidden = true;
+      app.ui.pinCountTimers = [];
+    }, 1000)
+  );
+}
+
+function stopPinCountOverlay() {
+  if (!dom.pinCountOverlay) {
+    return;
+  }
+
+  app.ui.pinCountTimers.forEach((timerId) => window.clearTimeout(timerId));
+  app.ui.pinCountTimers = [];
+  app.ui.pinCountRunning = false;
+  dom.pinCountOverlay.hidden = true;
+}
+
+function setPinCountOverlayValue(text) {
+  if (!dom.pinCountValue) {
+    return;
+  }
+
+  dom.pinCountValue.textContent = text;
+  dom.pinCountValue.classList.remove("pin-count-overlay__value--animate");
+  void dom.pinCountValue.offsetWidth;
+  dom.pinCountValue.classList.add("pin-count-overlay__value--animate");
 }
 
 function renderDirector(state) {
@@ -483,7 +543,7 @@ function buildDirectorSubtitle(state) {
 
 function renderSequence(state) {
   const activeSlot = getActiveSlot(state);
-  const focusSlot = pickFocusSlot(state, activeSlot);
+  const actionModel = buildActionModel(state);
 
   dom.sequenceCombo.textContent = buildSequenceBanner(state);
   dom.sequenceSlots.replaceChildren();
@@ -496,7 +556,123 @@ function renderSequence(state) {
   });
 
   dom.sequenceSlots.appendChild(track);
-  dom.sequenceSlots.appendChild(buildSequenceFocusCard(buildSequenceSlotModel(state, focusSlot, activeSlot)));
+  dom.sequenceSlots.appendChild(buildSequenceFooter(state, actionModel.buttons));
+}
+
+function buildSequenceFooter(state, actionButtons) {
+  const footer = document.createElement("div");
+  footer.className = "sequence-footer";
+
+  const eventModel = buildSequenceEventModel(state);
+  if (eventModel) {
+    footer.appendChild(buildSequenceEventCard(eventModel));
+  }
+
+  if (actionButtons.length > 0) {
+    footer.appendChild(buildSequenceActionButtons(actionButtons));
+    return footer;
+  }
+
+  const continueButton = buildSequenceContinueButton(state);
+  if (!continueButton.hidden) {
+    footer.appendChild(continueButton);
+  }
+
+  return footer;
+}
+
+function buildSequenceEventCard(model) {
+  const card = document.createElement("article");
+  card.className = "sequence-pinfall-pop";
+
+  const title = document.createElement("p");
+  title.className = "sequence-pinfall-pop__title";
+  title.textContent = model.title;
+  card.appendChild(title);
+
+  const reveal = document.createElement("p");
+  reveal.className = "sequence-pinfall-pop__value";
+  reveal.textContent = model.value;
+  card.appendChild(reveal);
+
+  const meta = document.createElement("p");
+  meta.className = "sequence-pinfall-pop__meta";
+  meta.textContent = model.meta || "";
+  meta.hidden = !model.meta;
+  card.appendChild(meta);
+
+  return card;
+}
+
+function buildSequenceEventModel(state) {
+  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
+    const lastReveal = state.pinAttempt?.drawnCards?.[state.pinAttempt.drawnCards.length - 1] || "No card revealed yet";
+    return {
+      title: "Pinfall Reveal",
+      value: lastReveal,
+      meta: `Draw ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`
+    };
+  }
+
+  const recent = getRecentHumanLogEntries(state, 3);
+  if (recent.length === 0) {
+    return null;
+  }
+
+  const latest = recent[recent.length - 1];
+  const prior = recent.length > 1 ? recent[recent.length - 2] : "";
+  const lower = latest.toLowerCase();
+  if (lower.includes("dodges") || lower.includes("reverses") || lower.includes("defended")) {
+    return { title: "Defence Result", value: latest, meta: state.status || prior };
+  }
+
+  if (lower.includes("lands") || lower.includes("uses ")) {
+    return { title: "Move Landed", value: latest, meta: state.status || prior };
+  }
+
+  if (lower.includes("gains") || lower.includes("damage rises")) {
+    return { title: "Effect Applied", value: latest, meta: prior };
+  }
+
+  return { title: "Sequence Update", value: latest, meta: state.status || "" };
+}
+
+function getRecentHumanLogEntries(state, count) {
+  return state.log.filter((entry) => !entry.startsWith("LOG_STATE ")).slice(-count);
+}
+
+function buildSequenceContinueButton(state) {
+  const button = document.createElement("button");
+  const actionable = Boolean(app.ui.pendingContinueAction) && !state.match.over;
+  button.type = "button";
+  button.className = "sequence-continue";
+  button.textContent = "Continue";
+  button.disabled = !actionable;
+  button.hidden = !actionable;
+  button.addEventListener("click", () => {
+    if (!app.ui.pendingContinueAction) {
+      return;
+    }
+    app.ui.pendingContinueAction();
+  });
+  return button;
+}
+
+function buildSequenceActionButtons(buttonModels) {
+  const container = document.createElement("div");
+  container.className = "action-buttons sequence-action-buttons";
+
+  buttonModels.forEach((buttonModel) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `action-button ${buttonModel.tone || "action-button--primary"}`;
+    button.textContent = buttonModel.label;
+    button.disabled = Boolean(buttonModel.disabled);
+    button.addEventListener("click", buttonModel.onClick);
+    container.appendChild(button);
+  });
+
+  return container;
 }
 
 function buildSequenceBanner(state) {
@@ -584,7 +760,8 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
       slot: slotEntry.slot,
       current: isCurrent,
       title: slotEntry.card.name,
-      shortTitle: shortenCardName(slotEntry.card.name),
+      rarity: capitalize(slotEntry.card.rarity || "common"),
+      damage: slotEntry.card.type === "attack" ? Number(slotEntry.card.damage || 0) : null,
       type: capitalize(slotEntry.card.type),
       stateLabel: slotEntry.result,
       meta: meta.join(" / "),
@@ -605,7 +782,8 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
       slot: slotEntry.slot,
       current: true,
       title: state.turn.attackerKey === "player" ? "Choose card" : "Incoming",
-      shortTitle: "Ready",
+      rarity: null,
+      damage: null,
       type: "",
       stateLabel: state.turn.attackerKey === "player" ? "Your move" : "Enemy turn",
       meta: "Only the next sequential slot can be used.",
@@ -618,7 +796,8 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
     slot: slotEntry.slot,
     current: false,
     title: slotEntry.slot < activeSlot ? "Open" : "Waiting",
-    shortTitle: slotEntry.slot < activeSlot ? "Open" : "Locked",
+    rarity: null,
+    damage: null,
     type: "",
     stateLabel: slotEntry.slot < activeSlot ? "Unused" : "Locked",
     meta: slotEntry.slot < activeSlot ? "No card played here." : "Waiting for the previous slot.",
@@ -642,10 +821,34 @@ function buildSequenceTrackSlot(model, activeSlot) {
   number.textContent = String(model.slot);
   slot.appendChild(number);
 
-  const label = document.createElement("span");
-  label.className = "sequence-track__label";
-  label.textContent = model.shortTitle;
-  slot.appendChild(label);
+  const title = document.createElement("span");
+  title.className = "sequence-track__title";
+  title.textContent = model.title;
+  slot.appendChild(title);
+
+  if (model.type || model.stateLabel) {
+    const stateLine = document.createElement("span");
+    stateLine.className = "sequence-track__state";
+    stateLine.textContent = [model.type, model.stateLabel].filter(Boolean).join(" / ");
+    slot.appendChild(stateLine);
+  }
+
+  if (model.type) {
+    const chips = document.createElement("div");
+    chips.className = "sequence-track__chips";
+
+    const rarity = document.createElement("span");
+    rarity.className = "sequence-track__chip";
+    rarity.textContent = `${model.rarity}`;
+    chips.appendChild(rarity);
+
+    const damage = document.createElement("span");
+    damage.className = "sequence-track__chip";
+    damage.textContent = `${model.damage === null ? "-" : model.damage}`;
+    chips.appendChild(damage);
+
+    slot.appendChild(chips);
+  }
 
   return slot;
 }
@@ -697,33 +900,6 @@ function buildSequenceFocusCard(model) {
   }
 
   return card;
-}
-
-function renderActionPanel(state) {
-  const model = buildActionModel(state);
-
-  dom.actionTitle.textContent = model.title;
-  dom.actionText.textContent = model.text;
-  dom.actionPhase.textContent = model.phase || "";
-  dom.actionPhase.hidden = !model.phase;
-  dom.actionOutcome.textContent = model.outcome || "";
-  dom.actionOutcome.hidden = !model.outcome;
-  dom.actionButtons.replaceChildren();
-
-  model.buttons.forEach((buttonModel) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `action-button ${buttonModel.tone || "action-button--primary"}`;
-    button.textContent = buttonModel.label;
-    button.disabled = Boolean(buttonModel.disabled);
-    button.addEventListener("click", buttonModel.onClick);
-    dom.actionButtons.appendChild(button);
-  });
-
-  dom.actionButtons.hidden = model.buttons.length === 0;
-  dom.endTurnButton.hidden = state.match.over || !canPlayerStopEarly(state);
-  dom.endTurnButton.disabled = !canPlayerStopEarly(state);
-  dom.endTurnButton.textContent = "Stop Early";
 }
 
 function buildActionModel(state) {
@@ -909,18 +1085,6 @@ function renderWrestlerPanel(state, wrestlerKey, panelDom) {
 function buildWrestlerStatusLine(state, wrestlerKey) {
   const labels = [];
 
-  if (!state.match.over) {
-    labels.push(state.turn.attackerKey === wrestlerKey ? "Current attacker" : "Current defender");
-  }
-
-  if (state.pinAttempt?.defenderKey === wrestlerKey) {
-    labels.push("Drawing from pinfall deck");
-  }
-
-  if (state.resolution?.defenderKey === wrestlerKey && state.phase !== Engine.PHASES.PINFALL_DRAW) {
-    labels.push("Defence window open");
-  }
-
   return labels.join(" / ");
 }
 
@@ -956,8 +1120,11 @@ function formatPercent(value) {
 function renderHand(currentApp) {
   const state = currentApp.state;
   const player = state.players.player;
-  const effectiveFilter = getEffectiveHandFilter(state, currentApp.ui.handFilter);
   const pinSummary = Engine.getPinfallSummary(player);
+
+  dom.endTurnButton.hidden = state.match.over || !canPlayerStopEarly(state);
+  dom.endTurnButton.disabled = !canPlayerStopEarly(state);
+  dom.endTurnButton.textContent = "Stop Early";
 
   dom.playerPinSummary.textContent = `Fail ${pinSummary.fail} / Kickout ${pinSummary.kickout}`;
   dom.drawPileCount.textContent = `Deck ${player.maneuverDeck.length} / Discard ${player.discardPile.length}`;
@@ -980,35 +1147,11 @@ function renderHand(currentApp) {
     };
   });
 
-  const filtered = entries.filter((entry) => {
-    if (effectiveFilter === "all") {
-      return true;
-    }
-
-    if (effectiveFilter === "usable") {
-      return entry.mode.clickable;
-    }
-
-    if (effectiveFilter === "offense") {
-      return Engine.OFFENSIVE_TYPES.has(entry.card.type);
-    }
-
-    if (effectiveFilter === "defense") {
-      return Engine.DEFENSIVE_TYPES.has(entry.card.type);
-    }
-
-    if (effectiveFilter === "pin") {
-      return entry.card.type === "pin";
-    }
-
-    return true;
-  });
-
-  const ordered = sortHandEntries(state, filtered);
+  const ordered = sortHandEntries(state, entries);
   if (ordered.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = effectiveFilter === "usable" ? "No playable cards." : "Nothing here.";
+    empty.textContent = "Nothing here.";
     dom.handCards.appendChild(empty);
     return;
   }
@@ -1038,18 +1181,6 @@ function renderHand(currentApp) {
     button.addEventListener("click", () => openCardModal(currentApp, entry));
     dom.handCards.appendChild(button);
   });
-}
-
-function getEffectiveHandFilter(state, currentFilter) {
-  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
-    return "defense";
-  }
-
-  if (state.turn.attackerKey !== "player") {
-    return currentFilter === "defense" ? "all" : currentFilter;
-  }
-
-  return currentFilter;
 }
 
 function getPlayerHandMode(state, card) {
@@ -1114,7 +1245,7 @@ function sortHandEntries(state, entries) {
 
 function renderRecentEvents(state) {
   dom.recentEventsList.replaceChildren();
-  const recent = state.log.slice(-4);
+  const recent = state.log.filter((entry) => !entry.startsWith("LOG_STATE ")).slice(-4);
 
   if (recent.length === 0) {
     const item = document.createElement("li");
@@ -1135,7 +1266,13 @@ function renderMatchLog(state) {
 
   state.log.forEach((entry) => {
     const item = document.createElement("li");
-    item.textContent = entry;
+    if (entry.startsWith("LOG_STATE ")) {
+      const code = document.createElement("code");
+      code.textContent = entry.slice("LOG_STATE ".length);
+      item.appendChild(code);
+    } else {
+      item.textContent = entry;
+    }
     dom.matchLogList.appendChild(item);
   });
 }
@@ -1319,17 +1456,6 @@ function canPlayerStopEarly(state) {
   );
 }
 
-function resetHandFilter(filter) {
-  app.ui.handFilter = filter;
-  syncHandFilterChips(filter);
-}
-
-function syncHandFilterChips(filter) {
-  dom.handFilters?.querySelectorAll(".filter-chip").forEach((chip) => {
-    chip.classList.toggle("is-active", chip.getAttribute("data-filter") === filter);
-  });
-}
-
 function shortenCardName(name) {
   return name.length > 16 ? `${name.slice(0, 14)}…` : name;
 }
@@ -1347,7 +1473,13 @@ function formatDefenceSummary(defence) {
 }
 
 function lastLogLine(state) {
-  return state.log[state.log.length - 1] || "";
+  for (let index = state.log.length - 1; index >= 0; index -= 1) {
+    const entry = state.log[index];
+    if (!entry.startsWith("LOG_STATE ")) {
+      return entry;
+    }
+  }
+  return "";
 }
 
 function capitalize(text) {

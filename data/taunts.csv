@@ -1,0 +1,13 @@
+#,Card Name,Slot,Rarity,Rarity Symbol,Effect,Card Design Notes
+1,Gun Show,1 / 2 / 3,Common,●,"Both players roll a D20. If the attacker’s roll is higher, their next Attack this turn gains +1 ATK. If the defender’s roll is higher, the opponent draws 1 card.",Earthquake pose
+2,Roar,2,Uncommon,◆,Add +2 to next Attack ,
+3,Come On!,2 / 3,Common,●,,
+4,Hulk Up,1,Special,❋,"Cards in 2nd and 3rd Slot get +2 to ATK, RVS & MSS",Hogan pose
+5,Get Hyped,1 / 3,Uncommon,◆,Remove Stun ,
+6,Fwahhh!,1 / 3,Rare,★,Both players discard 1 card at random,Steve Blackman pose
+7,Gyrate Hips,1 / 2 ,Rare,★,"Add Kickout! cards to your Pinfall deck equal to the slot played (1 if Slot 1, 2 if Slot 2).",Jimmy Del Ray
+8,Strut,3,Special,❋,Add 1 Kickout! card to your Pinfall deck,
+9,Yell at Crowd,2 / 3,Common,●,Both players discard 1 card at random,
+10,Shush,1 / 2,Common,●,Add +1 to next Attack ,
+11,Air Guitar,1 / 2 / 3,Uncommon,◆,"Draw 1 card, then discard 1 card at random",
+12,Complain to Ref,3,Rare,★,"Both players roll a D20. If the attacker’s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender’s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck.",

@@ -87,13 +87,6 @@
             <div class="panel-row">
               <div class="panel-title">
                 <h2>Your Hand</h2>
-                <div class="hand-filters" id="hand-filters">
-                  <button class="filter-chip is-active" type="button" data-filter="usable">Playable</button>
-                  <button class="filter-chip" type="button" data-filter="all">All</button>
-                  <button class="filter-chip" type="button" data-filter="offense">Offense</button>
-                  <button class="filter-chip" type="button" data-filter="defense">Defense</button>
-                  <button class="filter-chip" type="button" data-filter="pin">Pins</button>
-                </div>
               </div>
               <div class="hand-panel__controls">
                 <p id="player-pin-summary" class="panel-meter hand-panel__pin-summary"></p>
@@ -105,21 +98,6 @@
             <div id="hand-cards" class="hand-grid"></div>
           </section>
 
-          <section class="inspector-panel action-panel dock-action">
-            <div class="panel-row">
-              <div class="panel-title">
-                <h2>Current Action</h2>
-              </div>
-            </div>
-
-            <div class="action-body">
-              <p id="action-phase" class="action-phase"></p>
-              <p id="action-title" class="action-title"></p>
-              <p id="action-text" class="action-text"></p>
-              <p id="action-outcome" class="action-outcome"></p>
-              <div id="action-buttons" class="action-buttons"></div>
-            </div>
-          </section>
         </section>
 
       </div>
@@ -159,6 +137,11 @@
         <button id="card-modal-action" class="primary-button" type="button">Play Card</button>
       </div>
     </div>
+  </div>
+
+  <div id="pin-count-overlay" class="pin-count-overlay" hidden>
+    <div class="pin-count-overlay__backdrop"></div>
+    <p id="pin-count-value" class="pin-count-overlay__value">1</p>
   </div>
   <script src="game-engine.js"></script>
   <script src="main.js"></script>

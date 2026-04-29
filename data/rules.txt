@@ -1,0 +1,133 @@
+UnderCard: Card Game Rules
+Set-Up	1
+Key Mechanics	2
+Cards	2
+Turn Structure	2
+Card Play Rules	4
+Disadvantage	4
+Damage	4
+Winning the Game	4
+Set-Up
+Each player: 50-card Maneuver deck, Pinfall deck, Damage starts at 0, roll d20 for initiative.
+
+Maneuver Deck (Player’s Hand)
+Each player has a Maneuver Deck of exactly 50 cards. It contains the player’s actions which they can use to attack their opponent, goad the crowd, cheat to get ahead, or defend against their opponent.
+
+Maneuver Decks are constructed from:
+Attack cards
+Taunt cards
+Reverse cards
+Dodge cards
+Pin cards
+
+Enforced Deckbuilding Rules:
+Decks must be 50 cards
+Per-Card Copy Limits - based on Rarity
+Common (●): up to 4 copies of the same card
+Uncommon (◆): up to 3 copies
+Rare (★): up to 2 copies
+Special (❋): up to 2 copies
+
+Pinfall Deck
+Starts with 3 Fail cards and 7 Kickout cards
+Fail or Kickout cards added throughout match
+
+Hand
+Cards are drawn from the Maneuver Deck
+Each player must draw to have 6 cards in their hand at the start of their turn
+1st turn, each player draws 6 cards at the same time
+After a card is played it is discarded and cards are not re-drawn into the hand until the start of a player’s next turn
+
+Initiative
+A Showdown! decides which player takes their turn 1st.
+
+Key Mechanics
+Showdown
+Both players roll their dice. The higher roll wins. Re-roll on draw.
+Attacking Slots
+Each player has 3 Slots in which they build their attacks against their opponent. Attacks, Taunts, Pins - all actions must be placed in their corresponding slot: 1, 2, or 3. Cards played in the incorrect slot have Disadvantage against Defense.
+Pinfall
+Shuffle the defender’s Pinfall deck and draw 3 cards.
+If any drawn card is a Kickout!, the pin ends and the match continues.
+If all 3 drawn cards are Fail!, the pin succeeds and the attacker wins.
+Re-add drawn cards to Pinfall deck
+Stun
+When in a Stun state, flip the stunned wrestler’s Stunned card to ‘Stunned’ until the end of their next turn; they suffer Disadvantage on all Attacks, Dodges, and Reversals.
+Disadvantage
+Attacking: the defending wrestler rolls 2d20 for Dodges/Reversals and uses the higher result.
+Defending: the disadvantaged wrestler rolls 2d20 for a Dodge/Reversal and uses the lower result.
+Defending Attacks
+In a Showdown, a player with Disadvantage rolls their dice twice and takes the lowest number rolled.
+
+
+
+Cards
+Attack Cards: The main source of damage in the game, each depicting a wrestling move. Used to apply damage to opponents, which in turn adds Fail cards to their Pinfall deck. Some attacks also apply additional effects which can benefit or hinder the player or their opponent
+Taunt Cards: Used to help build sequences and some taunts apply effects to player or opponent
+Reversal Cards: Can be used in the defense phase of an attack to attempt a reversal
+Dodge Cards: Can be used in the defense phase of an attack to attempt a dodge
+Pin Cards: Used to initiate a Pin Attempt. They must be used as part of the ‘Move Slots’ and can be avoided by using a Reverse or Dodge card (after resolving a D20 Roll). 
+Pins can be played in 2 ways: Regular Pin and Roll-Up.
+Regular pin is when a Pin card is played as one of the Attacking player’s maneuvers on their turn
+Roll-Up is when a Pin card is played on its own and no other cards are played with it
+If a Pin card is successful, the player on the receiving end then enters the Pin Attempt phase.
+Pinfall Cards: ‘Fail’ or ‘Kickout’ cards. The Pinfall deck gets flooded with Fail cards as a result of opponent’s actions e.g. opponent’s: strong attacks, combos, taunt effects, attack effects. It gets flooded with Kickout cards as a result of player’s actions e.g. taunt effect, attack effects. Damage is directly linked to Fail cards, with flooding happening incrementally as damage goes up.
+Stun Cards: Stunned or Not Stunned. Used to track whether each player is in a Stunned state.
+Turn Structure
+Initiative: On your turn, you are the attacker; your opponent is the defender. (The roles switch each turn)
+Draw Phase: Draw up to 6 cards in your hand
+Main Phase (Offensive Sequence): You may play up to 3 cards as part of your offensive sequence - they can be Attacks, Taunts, or Pins. There are 3 slots which constitute an offensive sequence: 1, 2, and 3. 
+Cards are played one-by-one and are resolved after they are played.
+Card Slots
+Each Attack or Taunt card has a Slot value: 1, 2, or 3. This determines where in the offensive sequence it can be played.
+Cards played in the wrong Slot give the defender Advantage on their defensive roll - the defender rolls 2d20 and uses the higher result.
+Combos
+A Combo is when an Attacker successfully lands Maneuvers in all 3 slots. If the Attacker completes a Combo, the Defender has a Fail card added to their Pinfall deck.
+If a card is played in the wrong slot a combo cannot be completed
+Taunt cards can act as flexible bridges between slot values, allowing a chain to continue.
+Defence Phase: After each Offensive card has been played, the defender can play either a Reversal card or a Dodge card if they have one in their hand.
+Dodge
+When a player plays an attack, the opponent may play a Dodge card. Both players roll a D20 - highest roll determines winner. 
+If the player attempting the dodge wins, they dodge the attack, the attacker takes Miss Damage, and their combo ends. If the player attempting the attack wins, the dodge fails and the defending player takes the Attack Damage.
+Reversal
+When a player plays an attack, the opponent may play a Reversal card. Both players roll a D20 - highest roll determines winner. 
+If the player attempting the reversal wins, the attack is reversed, Reversal Damage is applied to the attacker, and the combo ends. If the player attempting the attack wins, the reversal fails and the defending player takes the Attack Damage.
+Defending a Taunt
+When an opponent plays a Taunt, you may attempt to block it with a Dodge or Reversal card. Both players roll a D20 - highest roll determines winner. If the player defending the Taunt wins, the Taunt has no effect and the combo ends. If the player attempting the Taunt wins, the Taunt succeeds and its effect is applied.
+Apply Effects: If the attack hits (and is not dodged or is reversed), apply its damage to the opponent. Then apply any card effects (e.g. forcing a discard).
+Pin Attempts: After the attacker plays a Pin card, the defender may attempt to Dodge or Reverse the Pin. This applies to Pins played during a Combo or as a Roll-Up.
+Dodge – The defender plays a Dodge card. Both players roll a D20 - highest roll determines winner.
+Defender wins: Dodge succeeds. The Pin attempt is avoided and no Pinfall takes place.
+Attacker wins: Dodge fails. The Pinfall Attempt sequence begins (defender draws 3 cards from their Pinfall deck).
+Reversal – The defender plays a Reversal card. Both players roll a D20 - highest roll determines winner.
+Defender wins: Reversal succeeds. The Pin is turned back on the attacker, who is now the one facing a Pin.
+Attacker wins: Reversal fails. The Pinfall Attempt sequence begins (defender draws 3 cards from their Pinfall deck).
+Chaining Pin Attempts: A reversed Pin may itself be defended with another Dodge or Reversal.
+Each successful Reversal flips the Pin onto the other player; each failed defence results in the Pinfall Attempt sequence.
+This back-and-forth can continue as long as players have defensive cards available and choose to use them.
+End Turn: After finishing their attacking phase, the attacker ends their turn. They do not discard any cards in their hand. The opponent then takes their turn following the same structure.
+Stun & Disadvantage
+Stun
+Stun Moves: If a move with Stun hits, the defending wrestler’s Stunned card is flipped to ‘Stunned’ until the end of their next turn. This applies Disadvantage to their Attacking or Defensive maneuvers.
+Remove the Disadvantage token in the stunned wrestler’s End Turn step after they’ve completed one full attack turn under its effect.
+Re-applying Stun before the token clears simply refreshes the duration.
+Disadvantage
+Attacking with Disadvantage
+If the disadvantaged wrestler plays an Attack (for example, in the wrong slot), then Dodges and Reversals against that Attack are easier.
+When defending against the Attack, the opponent rolls 2d20 and uses the higher result.
+Defending with Disadvantage
+If the disadvantaged wrestler attempts a Dodge or Reversal, they roll 2d20 and use the lower result.
+All other Dodge/Reversal rules still apply.
+Damage
+Fails build up as Damage increases: Fail cards are added to Pinfall deck at milestones of damage.
+0 Starting State
+Every 10 points of damage accrued = 1 Fail card added to Pinfall deck
+Winning the Game
+A match ends when one wrestler is successfully pinned. 
+Pinfall Attempt Sequence: Attacker successfully executes a pin attempt. 
+The pinned wrestler must draw 3 cards from their Pinfall deck one at a time. 
+If a drawn card is a ‘Kickout’ - the Pin ends and the match continues. The drawn cards are added back into the Pinfall deck
+If the defender draws 3 ‘Fail’ cards in a row - the Pin is successful and the attacker is declared the winner.
+Deck Exhaustion: A player runs out of cards to draw
+The player who runs out of Maneuver cards to draw loses the game
+After drawing to 0 remaining cards, player can complete their turn - if they do not pin their opponent then they lose the game.
