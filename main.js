@@ -641,6 +641,9 @@ function renderSequence(state) {
   dom.sequenceCombo.textContent = "";
   dom.sequenceSlots.replaceChildren();
 
+  const scroll = document.createElement("div");
+  scroll.className = "sequence-slots__scroll";
+
   const track = document.createElement("div");
   track.className = "sequence-track";
 
@@ -648,7 +651,8 @@ function renderSequence(state) {
     track.appendChild(buildSequenceTrackSlot(buildSequenceSlotModel(state, slotEntry, activeSlot), activeSlot));
   });
 
-  dom.sequenceSlots.appendChild(track);
+  scroll.appendChild(track);
+  dom.sequenceSlots.appendChild(scroll);
   dom.sequenceSlots.appendChild(buildSequenceFooter(state, actionModel.buttons));
 }
 

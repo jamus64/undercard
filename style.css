@@ -522,11 +522,22 @@ button[hidden],
 
 .sequence-slots {
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto auto;
+  height: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 5px 8px 8px;
-  align-content: space-between;
+  overflow: hidden;
+}
+
+.sequence-slots__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .sequence-track {
@@ -553,6 +564,7 @@ button[hidden],
 }
 
 .sequence-footer {
+  flex-shrink: 0;
   display: grid;
   gap: 8px;
 }
