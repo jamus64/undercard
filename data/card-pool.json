@@ -2,6 +2,7 @@
   {
     "id": "clothesline",
     "name": "Clothesline",
+    "image": "assets/Card Assets/Clothesline (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -18,6 +19,7 @@
   {
     "id": "spear",
     "name": "Spear",
+    "image": "assets/Card Assets/SP - Spear.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 1,
@@ -34,6 +36,7 @@
   {
     "id": "big_boot",
     "name": "Big Boot",
+    "image": "assets/Card Assets/Big Boot (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -50,6 +53,7 @@
   {
     "id": "headbutt",
     "name": "Headbutt",
+    "image": "assets/Card Assets/Headbutt.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -66,6 +70,7 @@
   {
     "id": "wild_swing",
     "name": "Wild Swing",
+    "image": "assets/Card Assets/Wild Swing.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 1,
@@ -82,6 +87,7 @@
   {
     "id": "eye_rake",
     "name": "Eye Rake",
+    "image": "assets/Card Assets/Eye Rake.png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -98,6 +104,7 @@
   {
     "id": "chair_shot",
     "name": "Chair Shot",
+    "image": "assets/Card Assets/SP - Chair Shot.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -114,6 +121,7 @@
   {
     "id": "cheap_shot",
     "name": "Cheap Shot",
+    "image": "assets/Card Assets/Cheap Shot.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -130,6 +138,7 @@
   {
     "id": "ref_distraction",
     "name": "Ref Distraction",
+    "image": "assets/Card Assets/Complain to Referee.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -146,6 +155,7 @@
   {
     "id": "low_blow",
     "name": "Low Blow",
+    "image": "assets/Card Assets/Low Blow.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 2,
@@ -162,6 +172,7 @@
   {
     "id": "hurricanrana",
     "name": "Hurricanrana",
+    "image": "assets/Card Assets/Hurricanrana.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -178,6 +189,7 @@
   {
     "id": "450_splash",
     "name": "450 Splash",
+    "image": "assets/Card Assets/450 Splash.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -194,6 +206,7 @@
   {
     "id": "shooting_star_press",
     "name": "Shooting Star Press",
+    "image": "assets/Card Assets/Shooting Star Press (1).png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -210,6 +223,7 @@
   {
     "id": "elbow_drop",
     "name": "Elbow Drop",
+    "image": "assets/Card Assets/Elbow Drop (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -226,6 +240,7 @@
   {
     "id": "frog_splash",
     "name": "Frog Splash",
+    "image": "assets/Card Assets/Frog Splash.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -242,6 +257,7 @@
   {
     "id": "second_rope_elbow_drop",
     "name": "Second Rope Elbow Drop",
+    "image": "assets/Card Assets/Second Rope Elbow Drop.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 2,
@@ -258,6 +274,7 @@
   {
     "id": "german_suplex",
     "name": "German Suplex",
+    "image": "assets/Card Assets/German Suplex.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -274,6 +291,7 @@
   {
     "id": "suplex",
     "name": "Suplex",
+    "image": "assets/Card Assets/Suplex (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 2,
@@ -290,6 +308,7 @@
   {
     "id": "bear_hug",
     "name": "Bear Hug",
+    "image": "assets/Card Assets/Hip Toss.png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 2,
@@ -306,6 +325,7 @@
   {
     "id": "chokeslam",
     "name": "Chokeslam",
+    "image": "assets/Card Assets/SP - Chokeslam.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -322,6 +342,7 @@
   {
     "id": "powerbomb",
     "name": "Powerbomb",
+    "image": "assets/Card Assets/Powerbomb (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -338,6 +359,7 @@
   {
     "id": "spinebuster",
     "name": "Spinebuster",
+    "image": "assets/Card Assets/Spinebuster.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -354,6 +376,7 @@
   {
     "id": "chop",
     "name": "Chop",
+    "image": "assets/Card Assets/Chop (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -370,6 +393,7 @@
   {
     "id": "jab",
     "name": "Jab",
+    "image": "assets/Card Assets/Jab (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -386,6 +410,7 @@
   {
     "id": "sweet_chin_music",
     "name": "Sweet Chin Music",
+    "image": "assets/Card Assets/SP - Leg Drop.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -402,6 +427,7 @@
   {
     "id": "body_blow",
     "name": "Body Blow",
+    "image": "assets/Card Assets/Body Blow.png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -418,6 +444,7 @@
   {
     "id": "dropkick",
     "name": "Dropkick",
+    "image": "assets/Card Assets/Dropkick (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -434,6 +461,7 @@
   {
     "id": "trip",
     "name": "Trip",
+    "image": "assets/Card Assets/Trip.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 1,
@@ -450,6 +478,7 @@
   {
     "id": "armbar",
     "name": "Armbar",
+    "image": "assets/Card Assets/Armbar.png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -466,6 +495,7 @@
   {
     "id": "figure_four",
     "name": "Figure Four",
+    "image": "assets/Card Assets/Sharpshooter.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -482,6 +512,7 @@
   {
     "id": "sharpshooter",
     "name": "Sharpshooter",
+    "image": "assets/Card Assets/Sharpshooter.png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -498,6 +529,7 @@
   {
     "id": "irish_whip",
     "name": "Irish Whip",
+    "image": "assets/Card Assets/Irish Whip (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -514,6 +546,7 @@
   {
     "id": "sleeper_hold",
     "name": "Sleeper Hold",
+    "image": "assets/Card Assets/Sleeper Hold.png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 2,
@@ -530,6 +563,7 @@
   {
     "id": "gun_show",
     "name": "Gun Show",
+    "image": "assets/Card Assets/Gun Show.png",
     "type": "taunt",
     "rarity": "common",
     "validSlot": 1,
@@ -544,6 +578,7 @@
   {
     "id": "roar",
     "name": "Roar",
+    "image": "assets/Card Assets/Roar.png",
     "type": "taunt",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -558,6 +593,7 @@
   {
     "id": "come_on",
     "name": "Come On!",
+    "image": "assets/Card Assets/Come On!.png",
     "type": "taunt",
     "rarity": "common",
     "validSlot": 2,
@@ -572,6 +608,7 @@
   {
     "id": "hulk_up",
     "name": "Hulk Up",
+    "image": "assets/Card Assets/Hulk Up.png",
     "type": "taunt",
     "rarity": "special",
     "validSlot": 1,
@@ -586,6 +623,7 @@
   {
     "id": "get_hyped",
     "name": "Get Hyped",
+    "image": "assets/Card Assets/Get Hyped.png",
     "type": "taunt",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -600,6 +638,7 @@
   {
     "id": "fwahhh",
     "name": "Fwahhh!",
+    "image": "assets/Card Assets/Fwahhh!.png",
     "type": "taunt",
     "rarity": "rare",
     "validSlot": 1,
@@ -614,6 +653,7 @@
   {
     "id": "gyrate_hips",
     "name": "Gyrate Hips",
+    "image": "assets/Card Assets/Gyrate Hips.png",
     "type": "taunt",
     "rarity": "rare",
     "validSlot": 1,
@@ -628,6 +668,7 @@
   {
     "id": "strut",
     "name": "Strut",
+    "image": "assets/Card Assets/Strut.png",
     "type": "taunt",
     "rarity": "special",
     "validSlot": 3,
@@ -642,6 +683,7 @@
   {
     "id": "yell_at_crowd",
     "name": "Yell at Crowd",
+    "image": "assets/Card Assets/Yell at Crowd.png",
     "type": "taunt",
     "rarity": "common",
     "validSlot": 2,
@@ -656,6 +698,7 @@
   {
     "id": "shush",
     "name": "Shush",
+    "image": "assets/Card Assets/Shush.png",
     "type": "taunt",
     "rarity": "common",
     "validSlot": 1,
@@ -670,6 +713,7 @@
   {
     "id": "air_guitar",
     "name": "Air Guitar",
+    "image": "assets/Card Assets/Air Guitar.png",
     "type": "taunt",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -684,6 +728,7 @@
   {
     "id": "complain_to_ref",
     "name": "Complain to Ref",
+    "image": "assets/Card Assets/Complain to Referee.png",
     "type": "taunt",
     "rarity": "rare",
     "validSlot": 3,
@@ -698,6 +743,7 @@
   {
     "id": "pin",
     "name": "Pin",
+    "image": "assets/Card Assets/Pin - Base Design (1).png",
     "type": "pin",
     "rarity": "common",
     "validSlot": "any",
@@ -706,6 +752,7 @@
   {
     "id": "dodge",
     "name": "Dodge",
+    "image": "assets/Card Assets/Dodge - Base Design - P2 (2).png",
     "type": "dodge",
     "rarity": "common",
     "afterUse": "discard"
@@ -713,6 +760,7 @@
   {
     "id": "reversal",
     "name": "Reversal",
+    "image": "assets/Card Assets/Reversal - Base Design - P2.png",
     "type": "reversal",
     "rarity": "common",
     "afterUse": "discard"

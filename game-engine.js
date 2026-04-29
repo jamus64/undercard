@@ -1085,6 +1085,7 @@
     return {
       id: String(card.id),
       name: String(card.name),
+      image: card.image ? String(card.image) : "",
       type: card.type,
       rarity: card.rarity || "common",
       validSlot: card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null),

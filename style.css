@@ -568,52 +568,11 @@ button[hidden],
   color: #201106;
 }
 
-.sequence-pinfall-pop {
-  justify-self: center;
-  width: min(92%, 320px);
-  padding: 8px 10px;
-  border: 2px solid rgba(255, 202, 74, 0.72);
-  border-radius: 16px;
-  text-align: center;
-  background:
-    linear-gradient(180deg, rgba(255, 220, 124, 0.14), rgba(0, 0, 0, 0.2)),
-    linear-gradient(180deg, rgba(52, 34, 27, 0.98) 0%, rgba(21, 13, 16, 0.98) 100%);
-}
-
-.sequence-pinfall-pop__title,
-.sequence-pinfall-pop__value,
-.sequence-pinfall-pop__meta {
-  margin: 0;
-}
-
-.sequence-pinfall-pop__title {
-  font-size: 0.66rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.sequence-pinfall-pop__value {
-  margin-top: 4px;
-  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
-  font-size: 0.9rem;
-  line-height: 1.08;
-  text-transform: none;
-  color: var(--gold);
-}
-
-.sequence-pinfall-pop__meta {
-  margin-top: 4px;
-  font-size: 0.7rem;
-  color: var(--ink-soft);
-}
-
 .sequence-track__slot {
-  min-height: 92px;
-  padding: 6px;
+  min-height: 266px;
+  padding: 10px;
   display: grid;
-  gap: 5px;
+  gap: 8px;
   align-content: start;
   border: 2px solid rgba(255, 202, 74, 0.32);
   border-radius: 16px;
@@ -621,6 +580,16 @@ button[hidden],
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.14)),
     rgba(30, 20, 32, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sequence-track__image {
+  width: 100%;
+  max-height: 222px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 202, 74, 0.45);
+  background: rgba(18, 11, 16, 0.7);
 }
 
 .sequence-track__slot--current {
@@ -848,8 +817,8 @@ button[hidden],
   grid-area: hand;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 220px;
-  height: 220px;
+  min-height: 196px;
+  height: 196px;
   border-color: rgba(255, 202, 74, 0.54);
   background:
     linear-gradient(180deg, rgba(255, 217, 120, 0.12), rgba(0, 0, 0, 0.1)),
@@ -858,14 +827,12 @@ button[hidden],
 
 .hand-panel .panel-row {
   padding: 5px 7px 4px;
-  display: grid;
-  gap: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   border-bottom: 1px solid rgba(255, 202, 74, 0.2);
   background: transparent;
-}
-
-.hand-panel .panel-title h2 {
-  margin-bottom: 3px;
 }
 
 .hand-filters {
@@ -894,23 +861,47 @@ button[hidden],
   gap: 6px;
 }
 
+.hand-panel__info {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border-bottom: 0;
+}
+
 .hand-panel__pin-summary {
   font-size: 0.64rem;
   color: var(--gold);
 }
 
-.hand-grid {
+.hand-menu-button {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  place-items: center;
+}
+
+.hand-grid {
+  display: flex;
+  align-items: stretch;
   gap: 4px;
   padding: 5px 7px 7px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   min-height: 0;
 }
 
 .hand-card {
-  min-width: 0;
-  aspect-ratio: 0.68;
+  flex: 0 0 88px;
+  width: 88px;
+  height: 132px;
   border: 2px solid rgba(255, 202, 74, 0.58);
   border-radius: 16px;
   background:
@@ -943,8 +934,8 @@ button[hidden],
 
 .hand-card__front {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 4px;
+  grid-template-rows: auto auto auto auto;
+  gap: 3px;
   height: 100%;
 }
 
@@ -970,7 +961,7 @@ button[hidden],
 }
 
 .hand-card__value {
-  margin-top: auto;
+  margin-top: 2px;
   font-family: Impact, "Arial Black", sans-serif;
   font-size: 0.74rem;
   line-height: 1;
@@ -1028,7 +1019,8 @@ button[hidden],
 
 .log-modal,
 .card-modal,
-.rolloff-modal {
+.rolloff-modal,
+.hand-menu-modal {
   position: fixed;
   inset: 0;
   display: grid;
@@ -1084,7 +1076,8 @@ button[hidden],
 
 .log-modal__backdrop,
 .card-modal__backdrop,
-.rolloff-modal__backdrop {
+.rolloff-modal__backdrop,
+.hand-menu-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
@@ -1094,19 +1087,21 @@ button[hidden],
 
 .log-modal__panel,
 .card-modal__panel,
-.rolloff-modal__panel {
+.rolloff-modal__panel,
+.hand-menu-modal__panel {
   position: relative;
   z-index: 1;
-  align-self: end;
-  width: 100%;
+  align-self: center;
+  justify-self: center;
+  width: min(760px, calc(100vw - 28px));
   max-height: calc(100dvh - 28px);
   overflow: auto;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  border-radius: 22px;
 }
 
 .log-modal__header,
-.card-modal__header {
+.card-modal__header,
+.hand-menu-modal__header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1116,11 +1111,32 @@ button[hidden],
 }
 
 .log-modal__header h2,
-.card-modal__title {
+.card-modal__title,
+.hand-menu-modal__header h2 {
   font-family: Impact, "Arial Black", sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--gold);
+}
+
+.hand-menu-modal__header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.hand-menu-modal__actions {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.hand-menu-modal__actions .primary-button,
+.hand-menu-modal__actions .secondary-button {
+  width: 100%;
+}
+
+.hand-menu-modal__actions .secondary-button {
+  font-size: 0.92rem;
 }
 
 .card-modal__type,
@@ -1164,6 +1180,14 @@ button[hidden],
   padding: 14px;
   display: grid;
   gap: 10px;
+}
+
+.card-modal__panel {
+  width: min(480px, calc(100vw - 28px));
+}
+
+.hand-menu-modal__panel {
+  width: min(440px, calc(100vw - 28px));
 }
 
 .rolloff-modal__title {
@@ -1356,12 +1380,12 @@ button[hidden],
   }
 
   .hand-panel {
-    min-height: 260px;
-    height: 260px;
+    min-height: 210px;
+    height: 210px;
   }
 
   .hand-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    display: flex;
   }
 
   .recent-panel {
@@ -1370,7 +1394,8 @@ button[hidden],
 
   .log-modal__panel,
   .card-modal__panel,
-  .rolloff-modal__panel {
+  .rolloff-modal__panel,
+  .hand-menu-modal__panel {
     align-self: center;
     justify-self: center;
     width: min(760px, calc(100vw - 48px));
@@ -1384,5 +1409,9 @@ button[hidden],
 
   .rolloff-modal__panel {
     width: min(520px, calc(100vw - 48px));
+  }
+
+  .hand-menu-modal__panel {
+    width: min(440px, calc(100vw - 48px));
   }
 }

@@ -46,10 +46,13 @@ const dom = {
   matchLogList: document.getElementById("match-log-list"),
   closeCardButton: document.getElementById("close-card-button"),
   closeRollOffButton: document.getElementById("close-rolloff-button"),
+  closeHandMenuButton: document.getElementById("close-hand-menu-button"),
   cardModal: document.getElementById("card-modal"),
   cardModalBackdrop: document.querySelector("#card-modal .card-modal__backdrop"),
   rollOffModal: document.getElementById("rolloff-modal"),
   rollOffModalBackdrop: document.querySelector("#rolloff-modal .rolloff-modal__backdrop"),
+  handMenuModal: document.getElementById("hand-menu-modal"),
+  handMenuModalBackdrop: document.querySelector("#hand-menu-modal .hand-menu-modal__backdrop"),
   rollOffTitle: document.getElementById("rolloff-title"),
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
@@ -76,7 +79,8 @@ const dom = {
   handCards: document.getElementById("hand-cards"),
   drawPileCount: document.getElementById("draw-pile-count"),
   playerPinSummary: document.getElementById("player-pin-summary"),
-  endTurnButton: document.getElementById("end-turn-button"),
+  handMenuButton: document.getElementById("hand-menu-button"),
+  handMenuStopEarly: document.getElementById("hand-menu-stop-early"),
   recentEventsList: document.getElementById("recent-events-list"),
   wrestlerPanels: {
     player: {
@@ -110,12 +114,15 @@ function bindEvents() {
   dom.cardModalBackdrop?.addEventListener("click", closeCardModal);
   dom.closeRollOffButton?.addEventListener("click", closeRollOffModal);
   dom.rollOffModalBackdrop?.addEventListener("click", closeRollOffModal);
-
-  dom.endTurnButton?.addEventListener("click", () => {
+  dom.closeHandMenuButton?.addEventListener("click", closeHandMenuModal);
+  dom.handMenuModalBackdrop?.addEventListener("click", closeHandMenuModal);
+  dom.handMenuButton?.addEventListener("click", openHandMenuModal);
+  dom.handMenuStopEarly?.addEventListener("click", () => {
     if (!canPlayerStopEarly(app.state)) {
       return;
     }
 
+    closeHandMenuModal();
     Engine.stopTurn(app.state);
     refreshApp();
   });
@@ -132,6 +139,11 @@ function bindEvents() {
 
     if (dom.rollOffModal && !dom.rollOffModal.hidden) {
       closeRollOffModal();
+      return;
+    }
+
+    if (dom.handMenuModal && !dom.handMenuModal.hidden) {
+      closeHandMenuModal();
       return;
     }
 
@@ -257,6 +269,7 @@ function startMatch(currentApp) {
   currentApp.ui.lastHandledLogIndex = 0;
   closeCardModal();
   closeLogModal();
+  closeHandMenuModal();
 
   const matchup = pickRandomMatchup();
   currentApp.state = Engine.createMatch({
@@ -551,7 +564,7 @@ function renderSequence(state) {
   const activeSlot = getActiveSlot(state);
   const actionModel = buildActionModel(state);
 
-  dom.sequenceCombo.textContent = buildSequenceBanner(state);
+  dom.sequenceCombo.textContent = "";
   dom.sequenceSlots.replaceChildren();
 
   const track = document.createElement("div");
@@ -569,11 +582,6 @@ function buildSequenceFooter(state, actionButtons) {
   const footer = document.createElement("div");
   footer.className = "sequence-footer";
 
-  const eventModel = buildSequenceEventModel(state);
-  if (eventModel) {
-    footer.appendChild(buildSequenceEventCard(eventModel));
-  }
-
   const controls = document.createElement("div");
   controls.className = "sequence-controls";
 
@@ -588,66 +596,6 @@ function buildSequenceFooter(state, actionButtons) {
   footer.appendChild(controls);
 
   return footer;
-}
-
-function buildSequenceEventCard(model) {
-  const card = document.createElement("article");
-  card.className = "sequence-pinfall-pop";
-
-  const title = document.createElement("p");
-  title.className = "sequence-pinfall-pop__title";
-  title.textContent = model.title;
-  card.appendChild(title);
-
-  const reveal = document.createElement("p");
-  reveal.className = "sequence-pinfall-pop__value";
-  reveal.textContent = model.value;
-  card.appendChild(reveal);
-
-  const meta = document.createElement("p");
-  meta.className = "sequence-pinfall-pop__meta";
-  meta.textContent = model.meta || "";
-  meta.hidden = !model.meta;
-  card.appendChild(meta);
-
-  return card;
-}
-
-function buildSequenceEventModel(state) {
-  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
-    const lastReveal = state.pinAttempt?.drawnCards?.[state.pinAttempt.drawnCards.length - 1] || "No card revealed yet";
-    return {
-      title: "Pinfall Reveal",
-      value: lastReveal,
-      meta: `Draw ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`
-    };
-  }
-
-  const recent = getRecentHumanLogEntries(state, 3);
-  if (recent.length === 0) {
-    return null;
-  }
-
-  const latest = recent[recent.length - 1];
-  const prior = recent.length > 1 ? recent[recent.length - 2] : "";
-  const lower = latest.toLowerCase();
-  if (lower.includes("dodges") || lower.includes("reverses") || lower.includes("defended")) {
-    return { title: "Defence Result", value: latest, meta: state.status || prior };
-  }
-
-  if (lower.includes("lands") || lower.includes("uses ")) {
-    return { title: "Move Landed", value: latest, meta: state.status || prior };
-  }
-
-  if (lower.includes("gains") || lower.includes("damage rises")) {
-    return { title: "Effect Applied", value: latest, meta: prior };
-  }
-
-  return { title: "Sequence Update", value: latest, meta: state.status || "" };
-}
-
-function getRecentHumanLogEntries(state, count) {
-  return state.log.filter((entry) => !entry.startsWith("LOG_STATE ")).slice(-count);
 }
 
 function buildSequenceContinueButton(state) {
@@ -684,37 +632,6 @@ function buildSequenceActionButtons(buttonModels) {
   return container;
 }
 
-function buildSequenceBanner(state) {
-  if (state.match.over) {
-    return "Match Over";
-  }
-
-  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
-    return `Pinfall ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`;
-  }
-
-  if (state.phase === Engine.PHASES.TURN_END) {
-    return "Turn ended";
-  }
-
-  if (state.turn.comboAchieved) {
-    return "Combo success";
-  }
-
-  const played = state.turn.slots.filter((slot) => slot.card).length;
-  const comboBroken =
-    state.turn.playedPin ||
-    state.turn.slots.some((slot) => {
-      return slot.card && slot.result !== "Resolving" && !slot.countedForCombo;
-    });
-
-  if (comboBroken) {
-    return "Combo broken";
-  }
-
-  return `Combo live ${played} / 3`;
-}
-
 function getActiveSlot(state) {
   if (state.pinAttempt) {
     return state.pinAttempt.slot;
@@ -749,31 +666,16 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
   const isCurrent = activeSlot === slotEntry.slot && !state.match.over;
 
   if (slotEntry.card) {
-    const meta = [];
-
-    if (slotEntry.card.type === "pin") {
-      meta.push("Pin");
-    } else {
-      meta.push(slotEntry.onSlot ? "On-slot" : "Off-slot");
-    }
-
-    if (slotEntry.defence) {
-      meta.push(formatDefenceSummary(slotEntry.defence));
-    }
-
-    if (slotEntry.destination) {
-      meta.push(`To ${slotEntry.destination}`);
-    }
-
     return {
       slot: slotEntry.slot,
       current: isCurrent,
-      title: slotEntry.card.name,
+      title: "",
+      image: slotEntry.card.image || "",
       rarity: capitalize(slotEntry.card.rarity || "common"),
       damage: slotEntry.card.type === "attack" ? Number(slotEntry.card.damage || 0) : null,
       type: capitalize(slotEntry.card.type),
-      stateLabel: slotEntry.result,
-      meta: meta.join(" / "),
+      stateLabel: "",
+      meta: "",
       result: slotEntry.result,
       variant:
         slotEntry.onSlot === false
@@ -791,11 +693,12 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
       slot: slotEntry.slot,
       current: true,
       title: state.turn.attackerKey === "player" ? "Choose card" : "Incoming",
+      image: "",
       rarity: null,
       damage: null,
       type: "",
-      stateLabel: state.turn.attackerKey === "player" ? "Your move" : "Enemy turn",
-      meta: "Only the next sequential slot can be used.",
+      stateLabel: "",
+      meta: "",
       result: "",
       variant: "live"
     };
@@ -804,12 +707,13 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
   return {
     slot: slotEntry.slot,
     current: false,
-    title: slotEntry.slot < activeSlot ? "Open" : "Waiting",
+    title: "Waiting",
+    image: "",
     rarity: null,
     damage: null,
     type: "",
-    stateLabel: slotEntry.slot < activeSlot ? "Unused" : "Locked",
-    meta: slotEntry.slot < activeSlot ? "No card played here." : "Waiting for the previous slot.",
+    stateLabel: "",
+    meta: "",
     result: "",
     variant: slotEntry.slot < activeSlot ? "open" : "locked"
   };
@@ -830,33 +734,20 @@ function buildSequenceTrackSlot(model, activeSlot) {
   number.textContent = String(model.slot);
   slot.appendChild(number);
 
-  const title = document.createElement("span");
-  title.className = "sequence-track__title";
-  title.textContent = model.title;
-  slot.appendChild(title);
-
-  if (model.type || model.stateLabel) {
-    const stateLine = document.createElement("span");
-    stateLine.className = "sequence-track__state";
-    stateLine.textContent = [model.type, model.stateLabel].filter(Boolean).join(" / ");
-    slot.appendChild(stateLine);
+  if (model.image) {
+    const image = document.createElement("img");
+    image.className = "sequence-track__image";
+    image.src = model.image;
+    image.alt = model.title || `Slot ${model.slot} card`;
+    image.loading = "lazy";
+    slot.appendChild(image);
   }
 
-  if (model.type) {
-    const chips = document.createElement("div");
-    chips.className = "sequence-track__chips";
-
-    const rarity = document.createElement("span");
-    rarity.className = "sequence-track__chip";
-    rarity.textContent = `${model.rarity}`;
-    chips.appendChild(rarity);
-
-    const damage = document.createElement("span");
-    damage.className = "sequence-track__chip";
-    damage.textContent = `${model.damage === null ? "-" : model.damage}`;
-    chips.appendChild(damage);
-
-    slot.appendChild(chips);
+  if (model.title) {
+    const title = document.createElement("span");
+    title.className = "sequence-track__title";
+    title.textContent = model.title;
+    slot.appendChild(title);
   }
 
   return slot;
@@ -1089,9 +980,10 @@ function renderHand(currentApp) {
   const player = state.players.player;
   const pinSummary = Engine.getPinfallSummary(player);
 
-  dom.endTurnButton.hidden = state.match.over || !canPlayerStopEarly(state);
-  dom.endTurnButton.disabled = !canPlayerStopEarly(state);
-  dom.endTurnButton.textContent = "Stop Early";
+  const canStop = canPlayerStopEarly(state);
+  dom.handMenuButton.hidden = state.match.over;
+  dom.handMenuButton.disabled = state.match.over;
+  dom.handMenuStopEarly.disabled = !canStop;
 
   dom.playerPinSummary.textContent = `Fail ${pinSummary.fail} / Kickout ${pinSummary.kickout}`;
   dom.drawPileCount.textContent = `Deck ${player.maneuverDeck.length} / Discard ${player.discardPile.length}`;
@@ -1242,6 +1134,7 @@ function renderMatchLog(state) {
 
 function openLogModal() {
   closeCardModal();
+  closeHandMenuModal();
   dom.logModal.hidden = false;
   syncModalState();
 }
@@ -1257,6 +1150,7 @@ function openCardModal(currentApp, entry) {
   const cardReason = entry.mode.reason || "";
 
   closeLogModal();
+  closeHandMenuModal();
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
   dom.cardModalMeta.textContent = formatCardSlot(card);
@@ -1347,11 +1241,31 @@ function closeRollOffModal() {
   syncModalState();
 }
 
+function openHandMenuModal() {
+  if (!dom.handMenuModal || dom.handMenuButton?.disabled) {
+    return;
+  }
+  closeLogModal();
+  closeCardModal();
+  closeRollOffModal();
+  dom.handMenuModal.hidden = false;
+  syncModalState();
+}
+
+function closeHandMenuModal() {
+  if (!dom.handMenuModal) {
+    return;
+  }
+  dom.handMenuModal.hidden = true;
+  syncModalState();
+}
+
 function syncModalState() {
   const anyModalOpen =
     (dom.logModal && !dom.logModal.hidden) ||
     (dom.cardModal && !dom.cardModal.hidden) ||
-    (dom.rollOffModal && !dom.rollOffModal.hidden);
+    (dom.rollOffModal && !dom.rollOffModal.hidden) ||
+    (dom.handMenuModal && !dom.handMenuModal.hidden);
   document.body.classList.toggle("modal-open", Boolean(anyModalOpen));
 }
 
