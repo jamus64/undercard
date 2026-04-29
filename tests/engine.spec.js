@@ -230,7 +230,7 @@ test("resolves an on-slot attack with no defence", () => {
 
 test("gives the defender advantage against an off-slot attack", () => {
   const state = makeMatch({
-    random: [0.75, 0.1],
+    random: [0.1, 0.75, 0.2],
     playerDeck: deckFromOpeningHand([attack("offslot_attack", 2, 8)]),
     enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
@@ -248,7 +248,7 @@ test("gives the defender advantage against an off-slot attack", () => {
 
 test("successful defence ends the attacker's turn immediately", () => {
   const state = makeMatch({
-    random: [0.1],
+    random: [0.1, 0.75],
     playerDeck: deckFromOpeningHand([attack("onslot_attack", 1, 8)]),
     enemyDeck: deckFromOpeningHand([reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
   });
@@ -308,7 +308,7 @@ test("playing a pin ends the offensive sequence and enters pin flow", () => {
 
 test("pin reversals can chain repeatedly", () => {
   const state = makeMatch({
-    random: [0.1, 0.1],
+    random: [0.1, 0.75, 0.1, 0.75],
     playerDeck: deckFromOpeningHand([pin("chain_pin"), reversal("player_reversal")]),
     enemyDeck: deckFromOpeningHand([reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
   });
@@ -404,7 +404,7 @@ test("off-slot cards do not count toward combo", () => {
 
 test("successful defence prevents combo rewards", () => {
   const state = makeMatch({
-    random: [0.1],
+    random: [0.1, 0.75],
     playerDeck: deckFromOpeningHand([
       attack("combo_1", 1, 4),
       attack("combo_2", 2, 4),

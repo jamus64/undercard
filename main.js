@@ -26,10 +26,11 @@ const app = {
   state: null,
   ui: {
     pendingContinueAction: null,
-    pendingEnemyCoinCall: null,
     pinCountTimers: [],
+    rollOffTimers: [],
     pinCountRunning: false,
-    lastHandledLogIndex: 0
+    lastHandledLogIndex: 0,
+    lastShownRollOffId: 0
   },
   timers: new Set()
 };
@@ -44,8 +45,12 @@ const dom = {
   logModalBackdrop: document.querySelector("#log-modal .log-modal__backdrop"),
   matchLogList: document.getElementById("match-log-list"),
   closeCardButton: document.getElementById("close-card-button"),
+  closeRollOffButton: document.getElementById("close-rolloff-button"),
   cardModal: document.getElementById("card-modal"),
   cardModalBackdrop: document.querySelector("#card-modal .card-modal__backdrop"),
+  rollOffModal: document.getElementById("rolloff-modal"),
+  rollOffModalBackdrop: document.querySelector("#rolloff-modal .rolloff-modal__backdrop"),
+  rollOffTitle: document.getElementById("rolloff-title"),
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
   cardModalMeta: document.getElementById("card-modal-meta"),
@@ -53,6 +58,13 @@ const dom = {
   cardModalReason: document.getElementById("card-modal-reason"),
   cardModalEffect: document.getElementById("card-modal-effect"),
   cardModalAction: document.getElementById("card-modal-action"),
+  rollOffAttackerName: document.getElementById("rolloff-attacker-name"),
+  rollOffAttackerRoll: document.getElementById("rolloff-attacker-roll"),
+  rollOffAttackerCard: document.getElementById("rolloff-attacker-card"),
+  rollOffDefenderName: document.getElementById("rolloff-defender-name"),
+  rollOffDefenderRoll: document.getElementById("rolloff-defender-roll"),
+  rollOffDefenderCard: document.getElementById("rolloff-defender-card"),
+  rollOffResult: document.getElementById("rolloff-result"),
   pinCountOverlay: document.getElementById("pin-count-overlay"),
   pinCountValue: document.getElementById("pin-count-value"),
   directorTitle: document.getElementById("director-title"),
@@ -96,6 +108,8 @@ function bindEvents() {
   dom.logModalBackdrop?.addEventListener("click", closeLogModal);
   dom.closeCardButton?.addEventListener("click", closeCardModal);
   dom.cardModalBackdrop?.addEventListener("click", closeCardModal);
+  dom.closeRollOffButton?.addEventListener("click", closeRollOffModal);
+  dom.rollOffModalBackdrop?.addEventListener("click", closeRollOffModal);
 
   dom.endTurnButton?.addEventListener("click", () => {
     if (!canPlayerStopEarly(app.state)) {
@@ -113,6 +127,11 @@ function bindEvents() {
 
     if (dom.cardModal && !dom.cardModal.hidden) {
       closeCardModal();
+      return;
+    }
+
+    if (dom.rollOffModal && !dom.rollOffModal.hidden) {
+      closeRollOffModal();
       return;
     }
 
@@ -328,9 +347,6 @@ function maybeRunAiFlow() {
     return;
   }
 
-  if (app.state.resolution.awaitingCoinCall) {
-    app.ui.pendingContinueAction = runEnemyCoinCallStep;
-  }
 }
 
 function runEnemyOffenseStep() {
@@ -370,18 +386,7 @@ function runEnemyDefenseStep() {
   }
 
   Engine.prepareDefence(app.state, decision.handIndex);
-  app.ui.pendingEnemyCoinCall = decision.call;
-  refreshApp();
-}
-
-function runEnemyCoinCallStep() {
-  if (!app.state || !app.state.resolution || !app.state.resolution.awaitingCoinCall) {
-    app.ui.pendingEnemyCoinCall = null;
-    return;
-  }
-
-  Engine.callDefenceCoin(app.state, app.ui.pendingEnemyCoinCall || "Heads");
-  app.ui.pendingEnemyCoinCall = null;
+  Engine.callDefenceCoin(app.state);
   refreshApp();
 }
 
@@ -412,6 +417,7 @@ function renderApp(currentApp) {
   renderHand(currentApp);
   renderRecentEvents(currentApp.state);
   renderMatchLog(currentApp.state);
+  maybeShowRollOffModal(currentApp.state);
 }
 
 function maybeRunPinCountOverlay(state) {
@@ -988,50 +994,20 @@ function buildActionModel(state) {
 }
 
 function buildPlayerDefenceModel(state, isPin) {
-  if (state.resolution.awaitingCoinCall && state.resolution.defence) {
-    return {
-      title: "Call the Coin",
-      text: `${state.resolution.defence.card.name} is ready. Pick Heads or Tails.`,
-      outcome: buildCoinModeText(state.resolution.defence.coinMode),
-      phase: isPin ? "Pin defence" : `Slot ${state.resolution.slot} defence`,
-      buttons: Engine.COIN_SIDES.map((side) => {
-        return {
-          label: side,
-          tone: side === "Heads" ? "action-button--dodge" : "action-button--reversal",
-          onClick: () => {
-            Engine.callDefenceCoin(app.state, side);
-            refreshApp();
-          }
-        };
-      })
-    };
-  }
-
   const attackCard = state.resolution.card;
-  const defenceButtons = Engine.getDefenseOptions(state, "player").map((entry) => {
-    return {
-      label: entry.card.name,
-      tone: entry.card.type === "dodge" ? "action-button--dodge" : "action-button--reversal",
-      onClick: () => {
-        Engine.prepareDefence(app.state, entry.handIndex);
-        refreshApp();
-      }
-    };
-  });
 
   return {
     title: isPin ? "Pin Incoming" : `Defend Slot ${state.resolution.slot}`,
     text: isPin
-      ? `${attackCard.name} has been played. Decide whether to dodge, reverse, or take the pin.`
+      ? `${attackCard.name} has been played. Play a dodge/reversal from hand, or take the pin.`
       : `${attackCard.name} is ${state.resolution.onSlot ? "on-slot" : "off-slot"} for ${attackCard.damage} damage.`,
     outcome: isPin
       ? "A successful reversal flips the same pin back."
       : state.resolution.onSlot
         ? "No defence or a failed defence lets the attack land."
-        : "Off-slot attack: the defender has advantage on the coin flip.",
+        : "Off-slot attack: the defender has advantage on the roll-off.",
     phase: isPin ? "Pin defence" : "Attack defence",
     buttons: [
-      ...defenceButtons,
       {
         label: isPin ? "No Defence" : "Take Hit",
         tone: "action-button--take",
@@ -1042,18 +1018,6 @@ function buildPlayerDefenceModel(state, isPin) {
       }
     ]
   };
-}
-
-function buildCoinModeText(mode) {
-  if (mode === "advantage") {
-    return "Two flips. One matching side succeeds.";
-  }
-
-  if (mode === "disadvantage") {
-    return "Two flips. Both sides must match.";
-  }
-
-  return "One flip decides it.";
 }
 
 function renderWrestlerPanel(state, wrestlerKey, panelDom) {
@@ -1194,10 +1158,6 @@ function getPlayerHandMode(state, card) {
       : { clickable: false, reason: "Not a defence card." };
   }
 
-  if (state.resolution?.defenderKey === "player" && state.resolution.awaitingCoinCall) {
-    return { clickable: false, reason: "Call the coin first." };
-  }
-
   if (state.turn.attackerKey !== "player" || state.phase !== Engine.PHASES.CHOOSE_NEXT_ACTION) {
     return { clickable: false, reason: "Wait for your turn." };
   }
@@ -1314,6 +1274,7 @@ function openCardModal(currentApp, entry) {
 
       if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
         Engine.prepareDefence(app.state, entry.handIndex);
+        Engine.callDefenceCoin(app.state);
         refreshApp();
         return;
       }
@@ -1341,11 +1302,114 @@ function closeCardModal() {
   syncModalState();
 }
 
+function maybeShowRollOffModal(state) {
+  const rollOff = state.lastDefenceRoll;
+  if (!rollOff || rollOff.id <= app.ui.lastShownRollOffId) {
+    return;
+  }
+
+  app.ui.lastShownRollOffId = rollOff.id;
+  resetRollOffVisualState();
+  dom.rollOffTitle.textContent = capitalize(rollOff.defenceChoice || "roll-off");
+  dom.rollOffAttackerName.textContent = rollOff.attackerName;
+  dom.rollOffAttackerRoll.textContent = "?";
+  dom.rollOffDefenderName.textContent = rollOff.defenderName;
+  dom.rollOffDefenderRoll.textContent = "?";
+  dom.rollOffResult.textContent = "Rolling...";
+  dom.rollOffModal.hidden = false;
+  syncModalState();
+
+  clearRollOffAnimationTimers();
+  animateRollOffValue(dom.rollOffAttackerRoll, rollOff.attackerRoll, 1050);
+  animateRollOffValue(dom.rollOffDefenderRoll, rollOff.defenderRoll, 1450, () => {
+    renderDefenderRollBreakdown(rollOff);
+  });
+  scheduleRollOffTimer(() => {
+    const attackerWon = rollOff.winnerName === rollOff.attackerName;
+    dom.rollOffAttackerCard?.classList.toggle("rolloff-modal__fighter--winner", attackerWon);
+    dom.rollOffAttackerCard?.classList.toggle("rolloff-modal__fighter--loser", !attackerWon);
+    dom.rollOffDefenderCard?.classList.toggle("rolloff-modal__fighter--winner", !attackerWon);
+    dom.rollOffDefenderCard?.classList.toggle("rolloff-modal__fighter--loser", attackerWon);
+    dom.rollOffResult.textContent = `${rollOff.winnerName} wins the roll-off`;
+  }, 1520);
+}
+
+function closeRollOffModal() {
+  if (!dom.rollOffModal) {
+    return;
+  }
+  clearRollOffAnimationTimers();
+  resetRollOffVisualState();
+  dom.rollOffModal.hidden = true;
+  syncModalState();
+}
+
 function syncModalState() {
   const anyModalOpen =
     (dom.logModal && !dom.logModal.hidden) ||
-    (dom.cardModal && !dom.cardModal.hidden);
+    (dom.cardModal && !dom.cardModal.hidden) ||
+    (dom.rollOffModal && !dom.rollOffModal.hidden);
   document.body.classList.toggle("modal-open", Boolean(anyModalOpen));
+}
+
+function animateRollOffValue(node, finalValue, totalDurationMs, onComplete) {
+  let elapsed = 0;
+
+  const tick = () => {
+    const progress = Math.min(elapsed / totalDurationMs, 1);
+    if (progress >= 1) {
+      if (onComplete) {
+        onComplete();
+      } else {
+        node.textContent = String(finalValue);
+      }
+      return;
+    }
+
+    node.textContent = String(1 + Math.floor(Math.random() * 20));
+    const delay = Math.round(26 + 180 * progress * progress);
+    elapsed += delay;
+    scheduleRollOffTimer(tick, delay);
+  };
+
+  tick();
+}
+
+function renderDefenderRollBreakdown(rollOff) {
+  if (!Array.isArray(rollOff.defenderRolls) || rollOff.defenderRolls.length <= 1) {
+    dom.rollOffDefenderRoll.textContent = String(rollOff.defenderRoll);
+    return;
+  }
+
+  const [firstRoll, secondRoll] = rollOff.defenderRolls;
+  let mutedIndex = -1;
+  if (firstRoll !== secondRoll) {
+    mutedIndex = firstRoll < secondRoll ? 0 : 1;
+  }
+
+  dom.rollOffDefenderRoll.innerHTML = `
+    <span class="rolloff-modal__roll-value ${mutedIndex === 0 ? "rolloff-modal__roll-value--muted" : ""}">${firstRoll}</span>
+    <span class="rolloff-modal__roll-separator">/</span>
+    <span class="rolloff-modal__roll-value ${mutedIndex === 1 ? "rolloff-modal__roll-value--muted" : ""}">${secondRoll}</span>
+  `;
+}
+
+function scheduleRollOffTimer(callback, delayMs) {
+  const timeoutId = window.setTimeout(() => {
+    app.ui.rollOffTimers = app.ui.rollOffTimers.filter((id) => id !== timeoutId);
+    callback();
+  }, delayMs);
+  app.ui.rollOffTimers.push(timeoutId);
+}
+
+function clearRollOffAnimationTimers() {
+  app.ui.rollOffTimers.forEach((timeoutId) => window.clearTimeout(timeoutId));
+  app.ui.rollOffTimers = [];
+}
+
+function resetRollOffVisualState() {
+  dom.rollOffAttackerCard?.classList.remove("rolloff-modal__fighter--winner", "rolloff-modal__fighter--loser");
+  dom.rollOffDefenderCard?.classList.remove("rolloff-modal__fighter--winner", "rolloff-modal__fighter--loser");
 }
 
 function formatCardSlot(card) {

@@ -139,6 +139,25 @@
     </div>
   </div>
 
+  <div id="rolloff-modal" class="rolloff-modal" hidden>
+    <button class="rolloff-modal__backdrop" type="button" aria-label="Close roll-off"></button>
+    <div class="rolloff-modal__panel">
+      <p id="rolloff-title" class="rolloff-modal__title">Roll-Off</p>
+      <div class="rolloff-modal__grid">
+        <article id="rolloff-attacker-card" class="rolloff-modal__fighter">
+          <p id="rolloff-attacker-name" class="rolloff-modal__name"></p>
+          <p id="rolloff-attacker-roll" class="rolloff-modal__roll"></p>
+        </article>
+        <article id="rolloff-defender-card" class="rolloff-modal__fighter">
+          <p id="rolloff-defender-name" class="rolloff-modal__name"></p>
+          <p id="rolloff-defender-roll" class="rolloff-modal__roll"></p>
+        </article>
+      </div>
+      <p id="rolloff-result" class="rolloff-modal__result"></p>
+      <button id="close-rolloff-button" class="primary-button" type="button">Continue</button>
+    </div>
+  </div>
+
   <div id="pin-count-overlay" class="pin-count-overlay" hidden>
     <div class="pin-count-overlay__backdrop"></div>
     <p id="pin-count-value" class="pin-count-overlay__value">1</p>

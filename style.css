@@ -729,11 +729,11 @@ button[hidden],
   border-radius: 12px;
   background:
     linear-gradient(180deg, #ffe078 0%, #f8c73e 100%);
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.9rem;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: #241106;
 }
 
@@ -909,11 +909,11 @@ button[hidden],
 
 .hand-card__title {
   margin: 0;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: 0.68rem;
-  line-height: 0.96;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--paper);
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -980,7 +980,8 @@ button[hidden],
 }
 
 .log-modal,
-.card-modal {
+.card-modal,
+.rolloff-modal {
   position: fixed;
   inset: 0;
   display: grid;
@@ -1035,7 +1036,8 @@ button[hidden],
 }
 
 .log-modal__backdrop,
-.card-modal__backdrop {
+.card-modal__backdrop,
+.rolloff-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
@@ -1044,7 +1046,8 @@ button[hidden],
 }
 
 .log-modal__panel,
-.card-modal__panel {
+.card-modal__panel,
+.rolloff-modal__panel {
   position: relative;
   z-index: 1;
   align-self: end;
@@ -1103,6 +1106,115 @@ button[hidden],
 
 .card-modal__actions .primary-button {
   width: 100%;
+}
+
+.rolloff-modal__panel {
+  align-self: center;
+  justify-self: center;
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  border-radius: 22px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.rolloff-modal__title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.2rem, 6vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rolloff-modal__fighter {
+  margin: 0;
+  padding: 10px 8px;
+  border: 2px solid rgba(255, 202, 74, 0.45);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 220, 124, 0.14), rgba(0, 0, 0, 0.22)),
+    rgba(30, 20, 32, 0.78);
+  text-align: center;
+}
+
+.rolloff-modal__name {
+  margin: 0;
+  font-size: clamp(0.95rem, 4vw, 1.25rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+}
+
+.rolloff-modal__roll {
+  margin: 6px 0 0;
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 1.55rem;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__roll-value {
+  display: inline-block;
+  min-width: 1.2em;
+}
+
+.rolloff-modal__roll-value--muted {
+  color: rgba(192, 192, 192, 0.85);
+}
+
+.rolloff-modal__roll-separator {
+  display: inline-block;
+  margin: 0 0.24em;
+  color: rgba(245, 224, 170, 0.9);
+}
+
+.rolloff-modal__result {
+  margin: 0;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.rolloff-modal__fighter--loser {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.rolloff-modal__fighter--winner {
+  animation: rolloff-winner-wiggle 460ms ease-in-out 5;
+}
+
+@keyframes rolloff-winner-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-2deg) scale(1.02);
+  }
+  40% {
+    transform: rotate(2deg) scale(1.02);
+  }
+  60% {
+    transform: rotate(-1deg) scale(1.01);
+  }
+  80% {
+    transform: rotate(1deg) scale(1.01);
+  }
 }
 
 #match-log-list,
@@ -1210,7 +1322,8 @@ button[hidden],
   }
 
   .log-modal__panel,
-  .card-modal__panel {
+  .card-modal__panel,
+  .rolloff-modal__panel {
     align-self: center;
     justify-self: center;
     width: min(760px, calc(100vw - 48px));
@@ -1220,5 +1333,9 @@ button[hidden],
 
   .card-modal__panel {
     width: min(480px, calc(100vw - 48px));
+  }
+
+  .rolloff-modal__panel {
+    width: min(520px, calc(100vw - 48px));
   }
 }
