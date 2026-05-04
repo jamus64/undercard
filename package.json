@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/jamus64/undercard/issues"
   },
-  "homepage": "https://github.com/jamus64/undercard#readme"
+  "homepage": "https://github.com/jamus64/undercard#readme",
+  "dependencies": {
+    "@playwright/test": "^1.59.1"
+  }
 }

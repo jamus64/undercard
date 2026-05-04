@@ -1,4 +1,11 @@
-const { test, expect } = require("@playwright/test");
+let test;
+let expect;
+try {
+  ({ test, expect } = require("@playwright/test"));
+} catch (_error) {
+  test = null;
+  expect = null;
+}
 const Engine = require("../game-engine");
 const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
@@ -120,7 +127,7 @@ function bucketTurns(turns) {
   return "51+";
 }
 
-test("simulates many matches and prints analysis log", () => {
+function runSimulationReport() {
   const cardLookup = buildCardLookup(cardPool);
   const summary = {
     total: MATCH_SIMULATION_COUNT,
@@ -218,6 +225,19 @@ test("simulates many matches and prints analysis log", () => {
   );
   console.log("===============================");
   console.log("");
+  return summary;
+}
 
-  expect(summary.total).toBeGreaterThan(0);
-});
+if (test && expect && require.main !== module) {
+  test("simulates many matches and prints analysis log", () => {
+    const summary = runSimulationReport();
+    expect(summary.total).toBeGreaterThan(0);
+  });
+}
+
+if (require.main === module) {
+  const summary = runSimulationReport();
+  if (summary.total <= 0) {
+    process.exitCode = 1;
+  }
+}
