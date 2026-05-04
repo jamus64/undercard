@@ -90,9 +90,6 @@ const dom = {
   rollOffResult: document.getElementById("rolloff-result"),
   pinCountOverlay: document.getElementById("pin-count-overlay"),
   pinCountValue: document.getElementById("pin-count-value"),
-  directorTitle: document.getElementById("director-title"),
-  directorSubtitle: document.getElementById("director-subtitle"),
-  directorPrimary: document.getElementById("director-primary"),
   outcomeBanner: document.getElementById("outcome-banner"),
   moveToast: document.getElementById("move-toast"),
   sequenceCombo: document.getElementById("sequence-combo"),
@@ -592,7 +589,7 @@ function renderApp(currentApp) {
   }
 
   processNewMatchLog(currentApp.state);
-  renderDirector(currentApp.state);
+  renderOutcomeBanner(currentApp.state);
   renderSequence(currentApp.state);
   renderWrestlerPanel(currentApp.state, "player", dom.wrestlerPanels.player);
   renderWrestlerPanel(currentApp.state, "enemy", dom.wrestlerPanels.enemy);
@@ -741,22 +738,7 @@ function setPinCountOverlayValue(text) {
   dom.pinCountValue.classList.add("pin-count-overlay__value--animate");
 }
 
-function renderDirector(state) {
-  const attacker = state.match.over ? null : Engine.getCurrentAttacker(state);
-  const slotLabel = state.match.over
-    ? "Match complete"
-    : state.phase === Engine.PHASES.PINFALL_DRAW
-      ? "Pinfall draw"
-      : state.phase === Engine.PHASES.TURN_END
-        ? "Turn ended"
-        : `Slot ${Math.min(state.turn.nextSlot, state.turn.slots.length)} of ${state.turn.slots.length}`;
-
-  dom.directorTitle.textContent = attacker ? `${attacker.name} / ${slotLabel}` : "UnderCard / Match complete";
-  dom.directorSubtitle.textContent = buildDirectorSubtitle(state);
-  dom.directorPrimary.hidden = true;
-  dom.directorPrimary.disabled = true;
-  dom.directorPrimary.onclick = null;
-
+function renderOutcomeBanner(state) {
   if (state.match.over) {
     dom.outcomeBanner.hidden = false;
     dom.outcomeBanner.textContent = state.match.winnerKey === "player" ? "You win" : "You lose";
@@ -769,35 +751,6 @@ function renderDirector(state) {
 
   dom.outcomeBanner.hidden = true;
   dom.outcomeBanner.className = "outcome-banner";
-}
-
-function buildDirectorSubtitle(state) {
-  if (state.match.over) {
-    return state.match.reason;
-  }
-
-  if (state.phase === Engine.PHASES.PINFALL_DRAW) {
-    const pinned = state.players[state.pinAttempt.defenderKey];
-    return `${pinned.name} draws pinfall cards one at a time.`;
-  }
-
-  if (state.phase === Engine.PHASES.TURN_END) {
-    return state.status || lastLogLine(state);
-  }
-
-  if (state.phase === Engine.PHASES.RESOLVE_ATTACK && state.resolution?.awaitingDefenceChoice) {
-    return `${state.players[state.resolution.defenderKey].name} chooses dodge, reversal, or no defence.`;
-  }
-
-  if (state.phase === Engine.PHASES.PIN_DEFENCE_DECISION && state.resolution?.awaitingDefenceChoice) {
-    return `${state.players[state.resolution.defenderKey].name} chooses how to answer the pin.`;
-  }
-
-  if (state.phase === Engine.PHASES.CHOOSE_NEXT_ACTION) {
-    return `${Engine.getCurrentAttacker(state).name} can play only into the next open slot.`;
-  }
-
-  return state.status || lastLogLine(state);
 }
 
 function renderSequence(state) {

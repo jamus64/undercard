@@ -278,7 +278,7 @@ test("successful dodge applies missDamage to attacker", () => {
   Engine.callDefenceCoin(state, "Heads");
 
   expect(state.players.player.damage).toBe(4);
-  expect(state.log.some((entry) => entry.includes("takes 4 damage from a missed attack"))).toBeTruthy();
+  expect(state.log.some((entry) => entry.includes("Counter-damage to") && entry.includes(": 4."))).toBeTruthy();
 });
 
 test("successful reversal applies reverseDamage to attacker", () => {
@@ -293,7 +293,7 @@ test("successful reversal applies reverseDamage to attacker", () => {
   Engine.callDefenceCoin(state, "Heads");
 
   expect(state.players.player.damage).toBe(6);
-  expect(state.log.some((entry) => entry.includes("takes 6 damage from a reversal"))).toBeTruthy();
+  expect(state.log.some((entry) => entry.includes("Counter-damage to") && entry.includes(": 6."))).toBeTruthy();
 });
 
 test("taunts are undefendable on-slot and off-slot", () => {
