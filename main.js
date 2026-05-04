@@ -1,4 +1,5 @@
 const Engine = window.UnderCardEngine;
+const DebugShared = window.UnderCardDebugShared;
 
 if (!Engine) {
   throw new Error("UnderCardEngine failed to load.");
@@ -24,6 +25,7 @@ const gameData = {
 const app = {
   isReady: false,
   state: null,
+  settings: createDefaultMatchSettings(),
   ui: {
     pendingContinueAction: null,
     pinCountTimers: [],
@@ -33,7 +35,11 @@ const app = {
     lastShownRollOffId: 0,
     moveToastTimer: null
   },
-  timers: new Set()
+  timers: new Set(),
+  sync: {
+    sourceId: DebugShared ? DebugShared.createSourceId("main") : `main-${Math.random().toString(36).slice(2, 10)}`,
+    lastUpdatedAt: 0
+  }
 };
 
 const dom = {
@@ -109,6 +115,109 @@ const dom = {
   }
 };
 
+function createDefaultMatchSettings() {
+  if (!DebugShared) {
+    return {
+      rules: Engine.buildRules(),
+      playerTemplateName: DEFAULT_PLAYER_WRESTLER,
+      enemyTemplateName: "",
+      initiativeWinner: "",
+      shuffleManeuverDeck: true,
+      aiStepDelay: AI_STEP_DELAY,
+      rarityLimits: { ...RARITY_LIMITS }
+    };
+  }
+
+  return DebugShared.createDefaultSettings({
+    rules: Engine.buildRules(),
+    playerTemplateName: DEFAULT_PLAYER_WRESTLER,
+    enemyTemplateName: "",
+    initiativeWinner: "",
+    shuffleManeuverDeck: true,
+    aiStepDelay: AI_STEP_DELAY,
+    rarityLimits: RARITY_LIMITS
+  });
+}
+
+function normalizeMatchSettings(input) {
+  if (!DebugShared) {
+    const next = input || {};
+    return {
+      ...createDefaultMatchSettings(),
+      ...next,
+      rules: Engine.buildRules(next.rules || createDefaultMatchSettings().rules),
+      rarityLimits: {
+        ...RARITY_LIMITS,
+        ...(next.rarityLimits || {})
+      }
+    };
+  }
+
+  return DebugShared.mergeSettings(createDefaultMatchSettings(), input);
+}
+
+function readSharedSession() {
+  return DebugShared ? DebugShared.readSession() : null;
+}
+
+function persistSharedSession() {
+  if (!DebugShared || !app.state) {
+    return;
+  }
+
+  const session = DebugShared.buildSession({
+    sourceId: app.sync.sourceId,
+    settings: app.settings,
+    state: Engine.serializeMatchState(app.state)
+  });
+
+  DebugShared.writeSession(session);
+  app.sync.lastUpdatedAt = session.updatedAt;
+}
+
+function applySharedSession(session, options = {}) {
+  if (!session) {
+    return false;
+  }
+
+  app.settings = normalizeMatchSettings(session.settings);
+  app.sync.lastUpdatedAt = Number(session.updatedAt || 0);
+
+  if (!session.state) {
+    return false;
+  }
+
+  clearScheduledCalls(app);
+  stopPinCountOverlay();
+  closeCardModal();
+  closeLogModal();
+  closeHandMenuModal();
+  closePinModal();
+  closeRollOffModal();
+  app.ui.lastHandledLogIndex = Array.isArray(session.state.log) ? session.state.log.length : 0;
+  app.ui.lastShownRollOffId = Number(session.state.lastDefenceRoll?.id || 0);
+  app.state = Engine.hydrateMatchState(session.state);
+
+  if (options.render !== false) {
+    refreshApp({ persist: false });
+  }
+
+  return true;
+}
+
+function handleSharedSessionStorage(event) {
+  if (!DebugShared || event.key !== DebugShared.SESSION_STORAGE_KEY || !event.newValue) {
+    return;
+  }
+
+  const session = readSharedSession();
+  if (!session || session.sourceId === app.sync.sourceId || session.updatedAt <= app.sync.lastUpdatedAt) {
+    return;
+  }
+
+  applySharedSession(session);
+}
+
 bindEvents();
 boot();
 
@@ -126,6 +235,7 @@ function bindEvents() {
   dom.closeHandMenuButton?.addEventListener("click", closeHandMenuModal);
   dom.handMenuModalBackdrop?.addEventListener("click", closeHandMenuModal);
   dom.handMenuButton?.addEventListener("click", openHandMenuModal);
+  window.addEventListener("storage", handleSharedSessionStorage);
   dom.handMenuStopEarly?.addEventListener("click", () => {
     if (!canPlayerStopEarly(app.state)) {
       return;
@@ -172,6 +282,14 @@ async function boot() {
     await loadGameData();
     validateGameData();
     app.isReady = true;
+    const sharedSession = readSharedSession();
+    if (sharedSession) {
+      app.settings = normalizeMatchSettings(sharedSession.settings);
+      if (applySharedSession(sharedSession, { render: true })) {
+        return;
+      }
+    }
+
     startMatch(app);
   } catch (error) {
     renderStartupError(error);
@@ -278,43 +396,56 @@ function restartMatch() {
 }
 
 function startMatch(currentApp) {
+  currentApp.settings = normalizeMatchSettings(currentApp.settings);
   clearScheduledCalls(currentApp);
   stopPinCountOverlay();
   hideMoveToast();
   currentApp.ui.lastHandledLogIndex = 0;
+  currentApp.ui.lastShownRollOffId = 0;
   closeCardModal();
   closeLogModal();
   closeHandMenuModal();
+  closePinModal();
+  closeRollOffModal();
 
-  const matchup = pickRandomMatchup();
+  const matchup = pickMatchupFromSettings(currentApp.settings);
   currentApp.state = Engine.createMatch({
+    rules: currentApp.settings.rules,
+    initiativeWinner: currentApp.settings.initiativeWinner || undefined,
     player: {
       name: matchup.player.name,
       maneuverDeck: Engine.buildDeckForWrestler(matchup.player, gameData.cardLookup, gameData.deckRecipe),
-      shuffleManeuverDeck: true
+      shuffleManeuverDeck: currentApp.settings.shuffleManeuverDeck
     },
     enemy: {
       name: matchup.enemy.name,
       maneuverDeck: Engine.buildDeckForWrestler(matchup.enemy, gameData.cardLookup, gameData.deckRecipe),
-      shuffleManeuverDeck: true
+      shuffleManeuverDeck: currentApp.settings.shuffleManeuverDeck
     }
   });
 
   refreshApp();
 }
 
-function pickRandomMatchup() {
+function pickMatchupFromSettings(settings) {
   const roster = gameData.wrestlers;
-  const playerTemplate =
-    roster.find((wrestler) => wrestler.name === DEFAULT_PLAYER_WRESTLER) || roster[0];
-  const enemyPool = roster.filter((wrestler) => wrestler.name !== playerTemplate.name);
-  const enemyTemplate =
-    enemyPool[Math.floor(Math.random() * enemyPool.length)] || playerTemplate;
+  const preferredPlayerName = settings.playerTemplateName || DEFAULT_PLAYER_WRESTLER;
+  const playerTemplate = roster.find((wrestler) => wrestler.name === preferredPlayerName) || roster[0];
+  const enemyTemplate = pickEnemyTemplate(roster, playerTemplate, settings.enemyTemplateName);
 
   return {
     player: cloneWrestler(playerTemplate),
     enemy: cloneWrestler(enemyTemplate)
   };
+}
+
+function pickEnemyTemplate(roster, playerTemplate, enemyTemplateName) {
+  if (enemyTemplateName) {
+    return roster.find((wrestler) => wrestler.name === enemyTemplateName) || playerTemplate;
+  }
+
+  const enemyPool = roster.filter((wrestler) => wrestler.name !== playerTemplate.name);
+  return enemyPool[Math.floor(Math.random() * enemyPool.length)] || playerTemplate;
 }
 
 function cloneWrestler(wrestler) {
@@ -327,9 +458,12 @@ function cloneEffects(effects) {
   return Array.isArray(effects) ? effects.map((effect) => ({ ...effect })) : [];
 }
 
-function refreshApp() {
+function refreshApp(options = {}) {
   maybeRunAiFlow();
   renderApp(app);
+  if (options.persist !== false) {
+    persistSharedSession();
+  }
 }
 
 function maybeRunAiFlow() {
@@ -593,7 +727,7 @@ function renderDirector(state) {
       ? "Pinfall draw"
       : state.phase === Engine.PHASES.TURN_END
         ? "Turn ended"
-      : `Slot ${Math.min(state.turn.nextSlot, 3)} of 3`;
+        : `Slot ${Math.min(state.turn.nextSlot, state.turn.slots.length)} of ${state.turn.slots.length}`;
 
   dom.directorTitle.textContent = attacker ? `${attacker.name} / ${slotLabel}` : "UnderCard / Match complete";
   dom.directorSubtitle.textContent = buildDirectorSubtitle(state);
@@ -729,11 +863,11 @@ function getActiveSlot(state) {
     return state.resolution.slot;
   }
 
-  if (state.turn.nextSlot <= 3) {
+  if (state.turn.nextSlot <= state.turn.slots.length) {
     return state.turn.nextSlot;
   }
 
-  return 3;
+  return state.turn.slots.length;
 }
 
 function pickFocusSlot(state, activeSlot) {
@@ -908,8 +1042,8 @@ function buildActionModel(state) {
     return {
       title: "Pinfall Draw",
       text: `${pinned.name} is pinned by ${attacker.name}.`,
-      outcome: `Kickout ends the pin. Three Fail cards end the match. ${state.pinAttempt.drawnCards.length} drawn so far.`,
-      phase: `Count ${state.pinAttempt.drawnCards.length} / ${Engine.constants.PIN_DRAW_COUNT}`,
+      outcome: `Kickout ends the pin. ${state.rules.pinDrawCount} Fail cards end the match. ${state.pinAttempt.drawnCards.length} drawn so far.`,
+      phase: `Count ${state.pinAttempt.drawnCards.length} / ${state.rules.pinDrawCount}`,
       buttons: [
         {
           label: "Draw Next Card",
@@ -1006,7 +1140,7 @@ function renderWrestlerPanel(state, wrestlerKey, panelDom) {
   const wrestler = state.players[wrestlerKey];
   const isAttacker = !state.match.over && state.turn.attackerKey === wrestlerKey;
   const pinSummary = Engine.getPinfallSummary(wrestler);
-  const pinChance = calculatePinChance(pinSummary.fail, pinSummary.total);
+  const pinChance = calculatePinChance(pinSummary.fail, pinSummary.total, state.rules.pinDrawCount);
 
   panelDom.name.textContent = wrestler.name;
   panelDom.role.textContent = "";
@@ -1049,13 +1183,13 @@ function pickPanelState(pinChance, damage) {
   return "steady";
 }
 
-function calculatePinChance(failCount, totalCount) {
-  if (failCount < 3 || totalCount < 3) {
+function calculatePinChance(failCount, totalCount, drawCount) {
+  if (failCount < drawCount || totalCount < drawCount) {
     return 0;
   }
 
   let chance = 1;
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < drawCount; index += 1) {
     chance *= (failCount - index) / (totalCount - index);
   }
 

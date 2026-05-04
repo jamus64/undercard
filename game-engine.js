@@ -35,13 +35,35 @@
     MATCH_END: "match_end"
   };
 
+  function buildRules(overrides) {
+    return {
+      handSize: normalizeWholeNumber(overrides?.handSize, HAND_SIZE, 1),
+      maxSequenceSlots: normalizeWholeNumber(overrides?.maxSequenceSlots, MAX_SEQUENCE_SLOTS, 1),
+      damagePerFail: normalizeWholeNumber(overrides?.damagePerFail, DAMAGE_PER_FAIL, 1),
+      pinDrawCount: normalizeWholeNumber(overrides?.pinDrawCount, PIN_DRAW_COUNT, 1),
+      startingPinFails: normalizeWholeNumber(overrides?.startingPinFails, STARTING_PIN_FAILS, 0),
+      startingPinKickouts: normalizeWholeNumber(overrides?.startingPinKickouts, STARTING_PIN_KICKOUTS, 0)
+    };
+  }
+
+  function normalizeWholeNumber(value, fallback, minimum) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return fallback;
+    }
+
+    return Math.max(minimum, Math.floor(numeric));
+  }
+
   function createMatch(config) {
     const random = createRandomSource(config?.random);
-    const player = createPlayerState("player", config?.player, random);
-    const enemy = createPlayerState("enemy", config?.enemy, random);
+    const rules = buildRules(config?.rules);
+    const player = createPlayerState("player", config?.player, random, rules);
+    const enemy = createPlayerState("enemy", config?.enemy, random, rules);
     const state = {
       phase: "",
       phaseHistory: [],
+      rules,
       players: {
         player,
         enemy
@@ -85,8 +107,8 @@
     );
 
     transitionTo(state, PHASES.INITIAL_DRAW);
-    const playerOpeningDraw = drawToHand(state, "player", HAND_SIZE);
-    const enemyOpeningDraw = drawToHand(state, "enemy", HAND_SIZE);
+    const playerOpeningDraw = drawToHand(state, "player", state.rules.handSize);
+    const enemyOpeningDraw = drawToHand(state, "enemy", state.rules.handSize);
     addLog(
       state,
       `${getPlayer(state, "player").name} draws ${playerOpeningDraw.drawn} cards for the opening hand.`
@@ -100,14 +122,14 @@
     return state;
   }
 
-  function createPlayerState(key, config, random) {
+  function createPlayerState(key, config, random, rules) {
     const maneuverDeck = cloneCardList(config?.maneuverDeck || []);
     const discardPile = cloneCardList(config?.discardPile || []);
     const exhaustPile = cloneCardList(config?.exhaustPile || []);
     const hand = cloneCardList(config?.hand || []);
     const pinfallDeck = Array.isArray(config?.pinfallDeck)
-      ? clonePinfallDeck(config.pinfallDeck)
-      : shuffleArray(clonePinfallDeck(), random);
+      ? clonePinfallDeck(config.pinfallDeck, rules)
+      : shuffleArray(clonePinfallDeck([], rules), random);
 
     return {
       key,
@@ -118,7 +140,7 @@
       exhaustPile,
       pinfallDeck,
       damage: Number(config?.damage || 0),
-      failThresholdsReached: Math.floor(Number(config?.damage || 0) / DAMAGE_PER_FAIL)
+      failThresholdsReached: Math.floor(Number(config?.damage || 0) / rules.damagePerFail)
     };
   }
 
@@ -141,7 +163,7 @@
     state.resolution = null;
     state.pinAttempt = null;
     state.pendingTurnStart = null;
-    state.turn = createTurnState(attackerKey, defenderKey, turnNumber);
+    state.turn = createTurnState(attackerKey, defenderKey, turnNumber, state.rules);
 
     transitionTo(state, PHASES.TURN_START);
     addLog(
@@ -150,7 +172,7 @@
     );
 
     transitionTo(state, PHASES.DRAW_PHASE);
-    const drawResult = drawToHand(state, attackerKey, HAND_SIZE);
+    const drawResult = drawToHand(state, attackerKey, state.rules.handSize);
     if (drawResult.drawn > 0) {
       addLog(
         state,
@@ -162,7 +184,7 @@
     return state;
   }
 
-  function createTurnState(attackerKey, defenderKey, number) {
+  function createTurnState(attackerKey, defenderKey, number, rules) {
     return {
       number,
       attackerKey,
@@ -173,7 +195,7 @@
       endReason: "",
       playedPin: false,
       comboAchieved: false,
-      slots: Array.from({ length: MAX_SEQUENCE_SLOTS }, (_, index) => {
+      slots: Array.from({ length: rules.maxSequenceSlots }, (_, index) => {
         return createTurnSlot(index + 1);
       })
     };
@@ -190,6 +212,420 @@
       destination: null,
       defence: null
     };
+  }
+
+  function serializeMatchState(state) {
+    if (!state) {
+      return null;
+    }
+
+    return {
+      phase: state.phase,
+      phaseHistory: Array.isArray(state.phaseHistory) ? [...state.phaseHistory] : [],
+      rules: buildRules(state.rules),
+      players: {
+        player: serializePlayerState(state.players?.player),
+        enemy: serializePlayerState(state.players?.enemy)
+      },
+      initiative: {
+        winnerKey: state.initiative?.winnerKey || null,
+        loserKey: state.initiative?.loserKey || null,
+        coinResult: state.initiative?.coinResult || null
+      },
+      turn: serializeTurnState(state.turn),
+      resolution: serializeResolutionState(state.resolution),
+      pinAttempt: serializePinAttemptState(state.pinAttempt),
+      pendingTurnStart: state.pendingTurnStart
+        ? {
+            attackerKey: state.pendingTurnStart.attackerKey,
+            number: Number(state.pendingTurnStart.number || 0)
+          }
+        : null,
+      log: Array.isArray(state.log) ? [...state.log] : [],
+      status: String(state.status || ""),
+      outcome: String(state.outcome || ""),
+      match: {
+        over: Boolean(state.match?.over),
+        winnerKey: state.match?.winnerKey || null,
+        loserKey: state.match?.loserKey || null,
+        reason: String(state.match?.reason || "")
+      },
+      meta: {
+        rollOffId: Number(state.meta?.rollOffId || 0)
+      },
+      lastDefenceRoll: serializeLastDefenceRoll(state.lastDefenceRoll)
+    };
+  }
+
+  function serializePlayerState(player) {
+    if (!player) {
+      return null;
+    }
+
+    return {
+      key: player.key,
+      name: player.name,
+      maneuverDeck: cloneCardList(player.maneuverDeck),
+      hand: cloneCardList(player.hand),
+      discardPile: cloneCardList(player.discardPile),
+      exhaustPile: cloneCardList(player.exhaustPile),
+      pinfallDeck: clonePinfallDeck(player.pinfallDeck, buildRules()),
+      damage: Number(player.damage || 0),
+      failThresholdsReached: Number(player.failThresholdsReached || 0)
+    };
+  }
+
+  function serializeTurnState(turn) {
+    if (!turn) {
+      return null;
+    }
+
+    return {
+      number: Number(turn.number || 0),
+      attackerKey: turn.attackerKey,
+      defenderKey: turn.defenderKey,
+      nextSlot: Number(turn.nextSlot || 1),
+      playsUsed: Number(turn.playsUsed || 0),
+      endedEarly: Boolean(turn.endedEarly),
+      endReason: turn.endReason || "",
+      playedPin: Boolean(turn.playedPin),
+      comboAchieved: Boolean(turn.comboAchieved),
+      slots: Array.isArray(turn.slots) ? turn.slots.map(serializeTurnSlot) : []
+    };
+  }
+
+  function serializeTurnSlot(slot) {
+    return {
+      slot: Number(slot.slot || 0),
+      card: slot.card ? cloneCard(slot.card) : null,
+      ownerKey: slot.ownerKey || null,
+      onSlot: slot.onSlot === null ? null : Boolean(slot.onSlot),
+      result: slot.result || "Open",
+      countedForCombo: Boolean(slot.countedForCombo),
+      destination: slot.destination || null,
+      defence: slot.defence
+        ? {
+            actorKey: slot.defence.actorKey || null,
+            choice: slot.defence.choice || "none",
+            cardName: slot.defence.cardName || "",
+            call: slot.defence.call || null,
+            flips: Array.isArray(slot.defence.flips) ? [...slot.defence.flips] : [],
+            success:
+              slot.defence.success === null || slot.defence.success === undefined
+                ? null
+                : Boolean(slot.defence.success),
+            coinMode: slot.defence.coinMode || "normal"
+          }
+        : null
+    };
+  }
+
+  function serializeResolutionState(resolution) {
+    if (!resolution) {
+      return null;
+    }
+
+    return {
+      kind: resolution.kind,
+      card: resolution.card ? cloneCard(resolution.card) : null,
+      cardOwnerKey: resolution.cardOwnerKey,
+      attackerKey: resolution.attackerKey,
+      defenderKey: resolution.defenderKey,
+      slot: Number(resolution.slot || 0),
+      onSlot: resolution.onSlot === null ? null : Boolean(resolution.onSlot),
+      awaitingDefenceChoice: Boolean(resolution.awaitingDefenceChoice),
+      awaitingCoinCall: Boolean(resolution.awaitingCoinCall),
+      defence: resolution.defence
+        ? {
+            actorKey: resolution.defence.actorKey,
+            choice: resolution.defence.choice,
+            card: resolution.defence.card ? cloneCard(resolution.defence.card) : null,
+            coinMode: resolution.defence.coinMode || "normal",
+            call: resolution.defence.call || null,
+            flips: Array.isArray(resolution.defence.flips) ? [...resolution.defence.flips] : [],
+            attackerRoll: Number(resolution.defence.attackerRoll || 0),
+            defenderRoll: Number(resolution.defence.defenderRoll || 0),
+            success:
+              resolution.defence.success === null || resolution.defence.success === undefined
+                ? null
+                : Boolean(resolution.defence.success)
+          }
+        : null,
+      pinHistory: Array.isArray(resolution.pinHistory)
+        ? resolution.pinHistory.map((entry) => ({ ...entry }))
+        : []
+    };
+  }
+
+  function serializePinAttemptState(pinAttempt) {
+    if (!pinAttempt) {
+      return null;
+    }
+
+    return {
+      attackerKey: pinAttempt.attackerKey,
+      defenderKey: pinAttempt.defenderKey,
+      card: pinAttempt.card ? cloneCard(pinAttempt.card) : null,
+      slot: Number(pinAttempt.slot || 0),
+      drawnCards: Array.isArray(pinAttempt.drawnCards) ? [...pinAttempt.drawnCards] : [],
+      destination: pinAttempt.destination || null
+    };
+  }
+
+  function serializeLastDefenceRoll(roll) {
+    if (!roll) {
+      return null;
+    }
+
+    return {
+      id: Number(roll.id || 0),
+      attackerName: roll.attackerName || "",
+      defenderName: roll.defenderName || "",
+      attackerRoll: Number(roll.attackerRoll || 0),
+      defenderRoll: Number(roll.defenderRoll || 0),
+      defenderRolls: Array.isArray(roll.defenderRolls) ? [...roll.defenderRolls] : [],
+      mode: roll.mode || "normal",
+      defenceChoice: roll.defenceChoice || "",
+      winnerName: roll.winnerName || ""
+    };
+  }
+
+  function hydrateMatchState(snapshot, options) {
+    if (!snapshot) {
+      return null;
+    }
+
+    const random = createRandomSource(options?.random);
+    const rules = buildRules(snapshot.rules);
+
+    return {
+      phase: snapshot.phase || "",
+      phaseHistory: Array.isArray(snapshot.phaseHistory) ? [...snapshot.phaseHistory] : [],
+      rules,
+      players: {
+        player: hydratePlayerState("player", snapshot.players?.player, random, rules),
+        enemy: hydratePlayerState("enemy", snapshot.players?.enemy, random, rules)
+      },
+      initiative: {
+        winnerKey: snapshot.initiative?.winnerKey || null,
+        loserKey: snapshot.initiative?.loserKey || null,
+        coinResult: snapshot.initiative?.coinResult || null
+      },
+      turn: hydrateTurnState(snapshot.turn, rules),
+      resolution: hydrateResolutionState(snapshot.resolution),
+      pinAttempt: hydratePinAttemptState(snapshot.pinAttempt),
+      pendingTurnStart: snapshot.pendingTurnStart
+        ? {
+            attackerKey: snapshot.pendingTurnStart.attackerKey,
+            number: Number(snapshot.pendingTurnStart.number || 0)
+          }
+        : null,
+      log: Array.isArray(snapshot.log) ? [...snapshot.log] : [],
+      status: String(snapshot.status || ""),
+      outcome: String(snapshot.outcome || ""),
+      match: {
+        over: Boolean(snapshot.match?.over),
+        winnerKey: snapshot.match?.winnerKey || null,
+        loserKey: snapshot.match?.loserKey || null,
+        reason: String(snapshot.match?.reason || "")
+      },
+      meta: {
+        random,
+        rollOffId: Number(snapshot.meta?.rollOffId || 0)
+      },
+      lastDefenceRoll: serializeLastDefenceRoll(snapshot.lastDefenceRoll)
+    };
+  }
+
+  function hydratePlayerState(key, snapshot, random, rules) {
+    const player = createPlayerState(
+      key,
+      {
+        name: snapshot?.name,
+        maneuverDeck: snapshot?.maneuverDeck || [],
+        hand: snapshot?.hand || [],
+        discardPile: snapshot?.discardPile || [],
+        exhaustPile: snapshot?.exhaustPile || [],
+        pinfallDeck: snapshot?.pinfallDeck || [],
+        damage: snapshot?.damage || 0,
+        shuffleManeuverDeck: false
+      },
+      random,
+      rules
+    );
+
+    player.failThresholdsReached =
+      snapshot && Number.isFinite(Number(snapshot.failThresholdsReached))
+        ? Number(snapshot.failThresholdsReached)
+        : Math.floor(player.damage / rules.damagePerFail);
+    return player;
+  }
+
+  function hydrateTurnState(turn, rules) {
+    if (!turn) {
+      return null;
+    }
+
+    return {
+      number: Number(turn.number || 0),
+      attackerKey: turn.attackerKey,
+      defenderKey: turn.defenderKey,
+      nextSlot: Number(turn.nextSlot || 1),
+      playsUsed: Number(turn.playsUsed || 0),
+      endedEarly: Boolean(turn.endedEarly),
+      endReason: turn.endReason || "",
+      playedPin: Boolean(turn.playedPin),
+      comboAchieved: Boolean(turn.comboAchieved),
+      slots: Array.isArray(turn.slots) && turn.slots.length > 0
+        ? turn.slots.map((slot) => {
+            return {
+              slot: Number(slot.slot || 0),
+              card: slot.card ? cloneCard(slot.card) : null,
+              ownerKey: slot.ownerKey || null,
+              onSlot: slot.onSlot === null ? null : Boolean(slot.onSlot),
+              result: slot.result || "Open",
+              countedForCombo: Boolean(slot.countedForCombo),
+              destination: slot.destination || null,
+              defence: slot.defence
+                ? {
+                    actorKey: slot.defence.actorKey || null,
+                    choice: slot.defence.choice || "none",
+                    cardName: slot.defence.cardName || "",
+                    call: slot.defence.call || null,
+                    flips: Array.isArray(slot.defence.flips) ? [...slot.defence.flips] : [],
+                    success:
+                      slot.defence.success === null || slot.defence.success === undefined
+                        ? null
+                        : Boolean(slot.defence.success),
+                    coinMode: slot.defence.coinMode || "normal"
+                  }
+                : null
+            };
+          })
+        : Array.from({ length: rules.maxSequenceSlots }, (_, index) => createTurnSlot(index + 1))
+    };
+  }
+
+  function hydrateResolutionState(resolution) {
+    if (!resolution) {
+      return null;
+    }
+
+    return {
+      kind: resolution.kind,
+      card: resolution.card ? cloneCard(resolution.card) : null,
+      cardOwnerKey: resolution.cardOwnerKey,
+      attackerKey: resolution.attackerKey,
+      defenderKey: resolution.defenderKey,
+      slot: Number(resolution.slot || 0),
+      onSlot: resolution.onSlot === null ? null : Boolean(resolution.onSlot),
+      awaitingDefenceChoice: Boolean(resolution.awaitingDefenceChoice),
+      awaitingCoinCall: Boolean(resolution.awaitingCoinCall),
+      defence: resolution.defence
+        ? {
+            actorKey: resolution.defence.actorKey,
+            choice: resolution.defence.choice,
+            card: resolution.defence.card ? cloneCard(resolution.defence.card) : null,
+            coinMode: resolution.defence.coinMode || "normal",
+            call: resolution.defence.call || null,
+            flips: Array.isArray(resolution.defence.flips) ? [...resolution.defence.flips] : [],
+            attackerRoll: Number(resolution.defence.attackerRoll || 0),
+            defenderRoll: Number(resolution.defence.defenderRoll || 0),
+            success:
+              resolution.defence.success === null || resolution.defence.success === undefined
+                ? null
+                : Boolean(resolution.defence.success)
+          }
+        : null,
+      pinHistory: Array.isArray(resolution.pinHistory)
+        ? resolution.pinHistory.map((entry) => ({ ...entry }))
+        : []
+    };
+  }
+
+  function hydratePinAttemptState(pinAttempt) {
+    if (!pinAttempt) {
+      return null;
+    }
+
+    return {
+      attackerKey: pinAttempt.attackerKey,
+      defenderKey: pinAttempt.defenderKey,
+      card: pinAttempt.card ? cloneCard(pinAttempt.card) : null,
+      slot: Number(pinAttempt.slot || 0),
+      drawnCards: Array.isArray(pinAttempt.drawnCards) ? [...pinAttempt.drawnCards] : [],
+      destination: pinAttempt.destination || null
+    };
+  }
+
+  function updateRules(state, inputRules) {
+    assertActiveMatch(state);
+
+    const previousRules = buildRules(state.rules);
+    const nextRules = buildRules({ ...previousRules, ...(inputRules || {}) });
+    const warnings = [];
+
+    state.rules = nextRules;
+
+    if (state.turn) {
+      syncTurnSlotsToRules(state, previousRules, nextRules, warnings);
+    }
+
+    reconcileDamageThresholdsToRules(state, previousRules, nextRules);
+
+    if (state.pinAttempt && state.pinAttempt.drawnCards.length >= nextRules.pinDrawCount) {
+      warnings.push("Current pinfall draw already meets the new draw target. Finish the pin sequence manually.");
+    }
+
+    return {
+      previousRules,
+      rules: nextRules,
+      warnings
+    };
+  }
+
+  function syncTurnSlotsToRules(state, previousRules, nextRules, warnings) {
+    const currentSlots = Array.isArray(state.turn.slots) ? state.turn.slots : [];
+
+    if (nextRules.maxSequenceSlots > currentSlots.length) {
+      for (let index = currentSlots.length; index < nextRules.maxSequenceSlots; index += 1) {
+        currentSlots.push(createTurnSlot(index + 1));
+      }
+      return;
+    }
+
+    if (nextRules.maxSequenceSlots >= currentSlots.length) {
+      return;
+    }
+
+    const trimmedSlots = currentSlots.slice(nextRules.maxSequenceSlots);
+    const hasOccupiedTrimmedSlot = trimmedSlots.some((slot) => slot.card);
+
+    if (hasOccupiedTrimmedSlot) {
+      warnings.push("Occupied slots stay visible until the current turn ends. The new slot cap applies on the next turn.");
+      return;
+    }
+
+    state.turn.slots = currentSlots.slice(0, nextRules.maxSequenceSlots);
+    state.turn.nextSlot = Math.min(state.turn.nextSlot, nextRules.maxSequenceSlots + 1);
+  }
+
+  function reconcileDamageThresholdsToRules(state, previousRules, nextRules) {
+    if (previousRules.damagePerFail === nextRules.damagePerFail) {
+      return;
+    }
+
+    ["player", "enemy"].forEach((playerKey) => {
+      const player = getPlayer(state, playerKey);
+      const previousThresholds = Number(player.failThresholdsReached || 0);
+      const nextThresholds = Math.floor(player.damage / nextRules.damagePerFail);
+
+      if (nextThresholds > previousThresholds) {
+        addPinfallCards(state, playerKey, "Fail", nextThresholds - previousThresholds, "rule change");
+      }
+
+      player.failThresholdsReached = nextThresholds;
+    });
   }
 
   function drawToHand(state, playerKey, targetSize) {
@@ -633,10 +1069,10 @@
 
     transitionTo(state, PHASES.PINFALL_DRAW);
     state.status = `${getPlayer(state, resolution.defenderKey).name} draws from the pinfall deck.`;
-    state.outcome = "Draw 3 cards one at a time. Kickout ends the pin.";
+    state.outcome = `Draw ${state.rules.pinDrawCount} cards one at a time. Kickout ends the pin.`;
     addLog(
       state,
-      `${getPlayer(state, resolution.defenderKey).name} must draw ${PIN_DRAW_COUNT} pinfall cards.`
+      `${getPlayer(state, resolution.defenderKey).name} must draw ${state.rules.pinDrawCount} pinfall cards.`
     );
     state.resolution = null;
   }
@@ -675,7 +1111,7 @@
       return state;
     }
 
-    if (attempt.drawnCards.length >= PIN_DRAW_COUNT) {
+    if (attempt.drawnCards.length >= state.rules.pinDrawCount) {
       endMatch(
         state,
         attempt.attackerKey,
@@ -685,7 +1121,7 @@
     }
 
     state.status = `${defender.name} continues the pinfall draw.`;
-    state.outcome = `${PIN_DRAW_COUNT - attempt.drawnCards.length} card${PIN_DRAW_COUNT - attempt.drawnCards.length === 1 ? "" : "s"} left.`;
+    state.outcome = `${state.rules.pinDrawCount - attempt.drawnCards.length} card${state.rules.pinDrawCount - attempt.drawnCards.length === 1 ? "" : "s"} left.`;
     return state;
   }
 
@@ -763,11 +1199,11 @@
       return `${attacker.name} stops the offensive sequence early.`;
     }
 
-    return `${attacker.name}'s turn ends after three slots.`;
+    return `${attacker.name}'s turn ends after ${state.rules.maxSequenceSlots} ${pluralize("slot", state.rules.maxSequenceSlots)}.`;
   }
 
   function advanceAfterResolvedOffense(state) {
-    if (state.turn.playsUsed >= MAX_SEQUENCE_SLOTS) {
+    if (state.turn.playsUsed >= state.rules.maxSequenceSlots) {
       finishTurn(state, "three_slots");
       return state;
     }
@@ -782,7 +1218,7 @@
     const previousThresholds = player.failThresholdsReached;
 
     player.damage += amount;
-    player.failThresholdsReached = Math.floor(player.damage / DAMAGE_PER_FAIL);
+    player.failThresholdsReached = Math.floor(player.damage / state.rules.damagePerFail);
 
     const failCardsAdded = player.failThresholdsReached - previousThresholds;
 
@@ -1057,6 +1493,287 @@
     };
   }
 
+  function inspectAiOffence(state, actorKey) {
+    const activeActorKey = actorKey || state.turn?.attackerKey;
+    if (!activeActorKey || !state.turn) {
+      return {
+        type: "unavailable",
+        reason: "No active turn is in progress."
+      };
+    }
+
+    const slot = state.turn.nextSlot;
+    const defender = getPlayer(state, getOpponentKey(activeActorKey));
+    const offensiveEntries = getOffenseOptions(state, activeActorKey);
+    const pinSummary = getPinfallSummary(defender);
+    const pinPressure = pinSummary.total > 0 ? pinSummary.fail / pinSummary.total : 0;
+
+    if (offensiveEntries.length === 0) {
+      return {
+        type: "stop",
+        actorKey: activeActorKey,
+        slot,
+        reason: "No offensive cards are available in hand."
+      };
+    }
+
+    const options = offensiveEntries
+      .map((entry) => {
+        return {
+          handIndex: entry.handIndex,
+          card: cloneCard(entry.card),
+          ...buildAiOffenseCardInsight(state, entry.card, slot, pinPressure, defender)
+        };
+      })
+      .sort((left, right) => {
+        if (right.deterministicScore !== left.deterministicScore) {
+          return right.deterministicScore - left.deterministicScore;
+        }
+
+        return left.handIndex - right.handIndex;
+      });
+
+    const top = options[0];
+    const runnerUp = options[1];
+    const certaintyGap = runnerUp ? top.deterministicScore - runnerUp.deterministicScore : Number.POSITIVE_INFINITY;
+
+    return {
+      type: "play",
+      actorKey: activeActorKey,
+      slot,
+      pinPressure,
+      certainty:
+        certaintyGap > 1 ? "high" : certaintyGap > 0.35 ? "medium" : "low",
+      choice: {
+        handIndex: top.handIndex,
+        card: cloneCard(top.card),
+        explanation: top.explanation,
+        scoreRange: top.scoreRange
+      },
+      options
+    };
+  }
+
+  function buildAiOffenseCardInsight(state, card, slot, pinPressure, defender) {
+    const breakdown = [];
+    const onSlot = card.type === "pin" ? true : doesCardMatchSlot(card, slot);
+    let deterministicScore = 0;
+
+    if (card.type === "attack") {
+      deterministicScore += 20;
+      breakdown.push({ label: "Attack base", value: 20 });
+      deterministicScore += Number(card.damage || 0);
+      breakdown.push({ label: "Damage", value: Number(card.damage || 0) });
+      deterministicScore += onSlot ? 4 : 1;
+      breakdown.push({ label: onSlot ? "On-slot bonus" : "Off-slot fallback", value: onSlot ? 4 : 1 });
+    }
+
+    if (card.type === "taunt") {
+      const pressure = getPinfallEffectPressure(card.onSlotEffect);
+      deterministicScore += 10;
+      breakdown.push({ label: "Taunt base", value: 10 });
+      deterministicScore += pressure;
+      breakdown.push({ label: "Pinfall pressure", value: pressure });
+      if (onSlot) {
+        deterministicScore += 3;
+        breakdown.push({ label: "On-slot bonus", value: 3 });
+      }
+    }
+
+    if (card.type === "pin") {
+      const damageWeight = defender.damage * 0.35;
+      const pressureWeight = pinPressure * 30;
+      const sequenceBonus = state.turn.playsUsed > 0 ? 3 : 0;
+      deterministicScore += damageWeight;
+      deterministicScore += pressureWeight;
+      deterministicScore += sequenceBonus;
+      breakdown.push({ label: "Damage pressure", value: roundScore(damageWeight) });
+      breakdown.push({ label: "Fail pressure", value: roundScore(pressureWeight) });
+      if (sequenceBonus > 0) {
+        breakdown.push({ label: "Late-sequence bonus", value: sequenceBonus });
+      }
+    }
+
+    return {
+      onSlot,
+      deterministicScore: roundScore(deterministicScore),
+      scoreRange: [roundScore(deterministicScore), roundScore(deterministicScore + 1)],
+      breakdown,
+      explanation: buildAiOffenseExplanation(card, onSlot, pinPressure, defender, state.turn.playsUsed)
+    };
+  }
+
+  function buildAiOffenseExplanation(card, onSlot, pinPressure, defender, playsUsed) {
+    if (card.type === "attack") {
+      return onSlot
+        ? `${card.name} is on-slot, so the AI gets full attack value plus the card's raw damage.`
+        : `${card.name} is still legal off-slot, but it only gets a small placement bonus.`;
+    }
+
+    if (card.type === "taunt") {
+      return onSlot
+        ? `${card.name} is on-slot and pressures ${defender.name}'s pinfall deck immediately.`
+        : `${card.name} is a lower-priority taunt here because its stronger effect only lands on-slot.`;
+    }
+
+    const failPercent = Math.round(pinPressure * 100);
+    return `${card.name} gets stronger as ${defender.name} builds damage and a fail-heavy deck${playsUsed > 0 ? ", plus a small bonus for ending a sequence late" : ""}. Current fail pressure is ${failPercent}%.`;
+  }
+
+  function inspectAiDefence(state) {
+    if (!state.resolution || !state.resolution.awaitingDefenceChoice) {
+      return {
+        type: "unavailable",
+        reason: "No defence decision is waiting."
+      };
+    }
+
+    const options = getDefenseOptions(state, state.resolution.defenderKey);
+    const threat =
+      state.resolution.kind === "pin"
+        ? 99
+        : (state.resolution.card.damage || 0) + getPinfallEffectPressure(state.resolution.card.onHitEffects);
+    let defendChance = state.resolution.kind === "pin" ? 0.9 : state.resolution.onSlot ? 0.55 : 0.75;
+
+    if (threat <= 3) {
+      defendChance -= 0.2;
+    }
+
+    defendChance = Math.max(0, Math.min(defendChance, 1));
+
+    if (options.length === 0) {
+      return {
+        type: "none",
+        threat,
+        defendChance,
+        reason: "No dodge or reversal cards are available."
+      };
+    }
+
+    const reversals = options.filter((entry) => entry.card.type === "reversal");
+    const dodges = options.filter((entry) => entry.card.type === "dodge");
+    const choiceWeights = {
+      none: roundScore(1 - defendChance),
+      dodge: 0,
+      reversal: 0
+    };
+
+    if (defendChance > 0) {
+      if (state.resolution.kind === "pin" && reversals.length > 0 && dodges.length > 0) {
+        choiceWeights.reversal = roundScore(defendChance * 0.6);
+        choiceWeights.dodge = roundScore(defendChance * 0.4);
+      } else if (dodges.length > 0) {
+        choiceWeights.dodge = roundScore(defendChance);
+      } else if (reversals.length > 0) {
+        choiceWeights.reversal = roundScore(defendChance);
+      }
+    }
+
+    const rankedChoices = [
+      {
+        type: "none",
+        probability: choiceWeights.none,
+        handIndex: null,
+        card: null
+      }
+    ];
+
+    if (dodges[0]) {
+      rankedChoices.push({
+        type: "dodge",
+        probability: choiceWeights.dodge,
+        handIndex: dodges[0].handIndex,
+        card: cloneCard(dodges[0].card)
+      });
+    }
+
+    if (reversals[0]) {
+      rankedChoices.push({
+        type: "reversal",
+        probability: choiceWeights.reversal,
+        handIndex: reversals[0].handIndex,
+        card: cloneCard(reversals[0].card)
+      });
+    }
+
+    rankedChoices.sort((left, right) => right.probability - left.probability);
+
+    return {
+      type: "decision",
+      defenderKey: state.resolution.defenderKey,
+      threat,
+      defendChance: roundScore(defendChance),
+      coinMode: getDefenceCoinMode(state.resolution),
+      defenceWinRate: roundScore(getDefenceWinRate(getDefenceCoinMode(state.resolution))),
+      rationale: buildAiDefenceRationale(state.resolution, threat, defendChance, dodges, reversals),
+      choices: rankedChoices
+    };
+  }
+
+  function buildAiDefenceRationale(resolution, threat, defendChance, dodges, reversals) {
+    const notes = [];
+
+    if (resolution.kind === "pin") {
+      notes.push("Pins get the highest urgency, so the AI almost always tries to defend.");
+    } else if (resolution.onSlot === false) {
+      notes.push("Off-slot attacks are easier to answer, so the defender is more willing to react.");
+    } else {
+      notes.push("On-slot attacks get a moderate defence rate unless the incoming damage is tiny.");
+    }
+
+    if (threat <= 3) {
+      notes.push("Low-damage threats reduce the chance that the AI spends a defence card.");
+    }
+
+    if (resolution.kind === "pin" && dodges.length > 0 && reversals.length > 0) {
+      notes.push("Against pins, reversals are preferred slightly more often than dodges.");
+    } else if (dodges.length > 0) {
+      notes.push("When not pinning, dodges are preferred before reversals if both are available.");
+    }
+
+    notes.push(`Current defend chance: ${Math.round(defendChance * 100)}%.`);
+    return notes;
+  }
+
+  function getDefenceWinRate(mode) {
+    let wins = 0;
+    let losses = 0;
+
+    for (let attackerRoll = 1; attackerRoll <= 20; attackerRoll += 1) {
+      if (mode === "normal") {
+        for (let defenderRoll = 1; defenderRoll <= 20; defenderRoll += 1) {
+          if (defenderRoll > attackerRoll) {
+            wins += 1;
+          } else if (defenderRoll < attackerRoll) {
+            losses += 1;
+          }
+        }
+        continue;
+      }
+
+      for (let firstRoll = 1; firstRoll <= 20; firstRoll += 1) {
+        for (let secondRoll = 1; secondRoll <= 20; secondRoll += 1) {
+          const defenderRoll =
+            mode === "advantage"
+              ? Math.max(firstRoll, secondRoll)
+              : Math.min(firstRoll, secondRoll);
+
+          if (defenderRoll > attackerRoll) {
+            wins += 1;
+          } else if (defenderRoll < attackerRoll) {
+            losses += 1;
+          }
+        }
+      }
+    }
+
+    return wins + losses === 0 ? 0.5 : wins / (wins + losses);
+  }
+
+  function roundScore(value) {
+    return Math.round(value * 100) / 100;
+  }
+
   function getOffenseOptions(state, actorKey) {
     return getPlayer(state, actorKey).hand
       .map((card, handIndex) => {
@@ -1130,18 +1847,18 @@
     };
   }
 
-  function clonePinfallDeck(pinfallDeck) {
+  function clonePinfallDeck(pinfallDeck, rules) {
     if (Array.isArray(pinfallDeck) && pinfallDeck.length > 0) {
       return [...pinfallDeck];
     }
 
     const deck = [];
 
-    for (let index = 0; index < STARTING_PIN_FAILS; index += 1) {
+    for (let index = 0; index < rules.startingPinFails; index += 1) {
       deck.push("Fail");
     }
 
-    for (let index = 0; index < STARTING_PIN_KICKOUTS; index += 1) {
+    for (let index = 0; index < rules.startingPinKickouts; index += 1) {
       deck.push("Kickout");
     }
 
@@ -1222,6 +1939,7 @@
       event: message,
       phase: state.phase,
       turn: state.turn ? state.turn.number : null,
+      rules: buildRules(state.rules),
       wrestlers: {
         player: buildWrestlerLogState(state.players.player),
         enemy: buildWrestlerLogState(state.players.enemy)
@@ -1362,6 +2080,7 @@
     DEFENSIVE_TYPES,
     OFFENSIVE_TYPES,
     PHASES,
+    buildRules,
     constants: {
       HAND_SIZE,
       MAX_SEQUENCE_SLOTS,
@@ -1383,13 +2102,19 @@
     getCurrentAttacker,
     getCurrentDefender,
     getDefenseOptions,
+    getDefenceWinRate,
     getOffenseOptions,
     getOpponentKey,
     getPinfallSummary,
+    hydrateMatchState,
     hasPlayableOffense,
+    inspectAiDefence,
+    inspectAiOffence,
     normalizeCard,
     playOffensiveCard,
     prepareDefence,
-    stopTurn
+    serializeMatchState,
+    stopTurn,
+    updateRules
   };
 });

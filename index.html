@@ -10,7 +10,7 @@
   <main class="page-shell">
     <header class="page-header">
       <div class="page-header__brand">
-        <p class="page-header__eyebrow">Mobile Prototype</p>
+        <p class="page-header__eyebrow"><a href="/debug">Debug Menu</a></p>
         <h1>UnderCard</h1>
       </div>
       <div class="page-header__actions">
@@ -60,7 +60,7 @@
           </div>
 
           <div class="field-main">
-            <section class="inspector-panel sequence-panel">
+            <section class="inspector-panel sequence-panel action-panel">
               <div class="panel-row">
                 <div class="panel-title">
                   <h2></h2>
@@ -180,7 +180,7 @@
         <button id="close-hand-menu-button" class="secondary-button" type="button">Close</button>
       </div>
       <div class="hand-menu-modal__actions">
-        <button id="hand-menu-stop-early" class="primary-button" type="button">Stop Early</button>
+        <button id="hand-menu-stop-early" class="primary-button" type="button">End Turn</button>
         <button class="secondary-button" type="button">Placeholder Option 1</button>
         <button class="secondary-button" type="button">Placeholder Option 2</button>
         <button class="secondary-button" type="button">Placeholder Option 3</button>
@@ -193,6 +193,7 @@
     <p id="pin-count-value" class="pin-count-overlay__value">1</p>
   </div>
   <script src="game-engine.js"></script>
+  <script src="debug-shared.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

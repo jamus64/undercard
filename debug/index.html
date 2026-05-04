@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UnderCard Debug</title>
+  <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+  <main class="debug-shell">
+    <header class="debug-header">
+      <div class="debug-header__copy">
+        <p class="debug-header__eyebrow">Live Match Tools</p>
+        <h1>UnderCard Debug Control Room</h1>
+        <p class="debug-header__subtitle">Tune rules, inspect the AI, edit hands, and keep the main board synced while the match is still running.</p>
+      </div>
+      <div class="debug-header__actions">
+        <a class="debug-link-button" href="/">Open Board</a>
+        <button id="start-match-button" class="debug-button debug-button--primary" type="button">Start New Match</button>
+        <button id="apply-rules-button" class="debug-button" type="button">Apply Live Rules</button>
+      </div>
+    </header>
+
+    <section class="debug-grid">
+      <aside class="debug-column">
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Session</p>
+              <h2>Live Sync</h2>
+            </div>
+            <span id="sync-pill" class="status-pill">Idle</span>
+          </div>
+          <p id="sync-summary" class="muted-copy">Loading...</p>
+          <div class="button-row">
+            <button id="pull-session-button" class="debug-button" type="button">Pull Latest</button>
+            <button id="copy-state-button" class="debug-button" type="button">Copy Snapshot</button>
+          </div>
+        </article>
+
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Globals</p>
+              <h2>Match Setup</h2>
+            </div>
+          </div>
+          <div class="control-grid">
+            <label class="field">
+              <span>Player Wrestler</span>
+              <select id="player-template-select"></select>
+            </label>
+            <label class="field">
+              <span>Enemy Wrestler</span>
+              <select id="enemy-template-select"></select>
+            </label>
+            <label class="field">
+              <span>Initiative</span>
+              <select id="initiative-select">
+                <option value="">Random</option>
+                <option value="player">Player</option>
+                <option value="enemy">Enemy</option>
+              </select>
+            </label>
+            <label class="field field--compact">
+              <span>AI Step Delay (ms)</span>
+              <input id="ai-step-delay-input" type="number" min="0" step="100">
+            </label>
+            <label class="field field--checkbox">
+              <input id="shuffle-deck-checkbox" type="checkbox">
+              <span>Shuffle maneuver decks on new match</span>
+            </label>
+          </div>
+          <div class="mini-table" id="rarity-limits-table"></div>
+        </article>
+
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Rules</p>
+              <h2>Runtime Variables</h2>
+            </div>
+          </div>
+          <div class="control-grid">
+            <label class="field">
+              <span>Hand Size</span>
+              <input id="rule-hand-size" type="number" min="1" step="1">
+              <small>Live + new match</small>
+            </label>
+            <label class="field">
+              <span>Sequence Slots</span>
+              <input id="rule-max-sequence-slots" type="number" min="1" step="1">
+              <small>Live + new match</small>
+            </label>
+            <label class="field">
+              <span>Damage Per Fail</span>
+              <input id="rule-damage-per-fail" type="number" min="1" step="1">
+              <small>Live + new match</small>
+            </label>
+            <label class="field">
+              <span>Pin Draw Count</span>
+              <input id="rule-pin-draw-count" type="number" min="1" step="1">
+              <small>Live + new match</small>
+            </label>
+            <label class="field">
+              <span>Starting Fails</span>
+              <input id="rule-starting-pin-fails" type="number" min="0" step="1">
+              <small>New match</small>
+            </label>
+            <label class="field">
+              <span>Starting Kickouts</span>
+              <input id="rule-starting-pin-kickouts" type="number" min="0" step="1">
+              <small>New match</small>
+            </label>
+          </div>
+          <p id="rule-feedback" class="muted-copy">Rule changes apply to the live match where it is safe and always carry into the next fresh match.</p>
+        </article>
+      </aside>
+
+      <section class="debug-column debug-column--main">
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Flow</p>
+              <h2>Match Summary</h2>
+            </div>
+          </div>
+          <div id="match-summary-grid" class="summary-grid"></div>
+          <div class="button-row">
+            <button id="continue-turn-button" class="debug-button debug-button--primary" type="button">Continue Turn</button>
+            <button id="run-enemy-button" class="debug-button" type="button">Run Enemy Step</button>
+            <button id="draw-pin-button" class="debug-button" type="button">Draw Pin Card</button>
+            <button id="no-defence-button" class="debug-button" type="button">No Defence</button>
+          </div>
+          <div class="button-row">
+            <button id="run-to-player-button" class="debug-button" type="button">Run To Player Choice</button>
+            <button id="stop-autoplay-button" class="debug-button" type="button">Stop Auto</button>
+          </div>
+        </article>
+
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Arena</p>
+              <h2>Current Sequence</h2>
+            </div>
+          </div>
+          <div id="sequence-track" class="sequence-track"></div>
+        </article>
+
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Forecast</p>
+              <h2>Enemy AI</h2>
+            </div>
+          </div>
+          <div id="ai-insight"></div>
+        </article>
+
+        <article class="debug-card">
+          <div class="debug-card__header">
+            <div>
+              <p class="debug-card__eyebrow">Logs</p>
+              <h2>Recent Events</h2>
+            </div>
+          </div>
+          <ol id="recent-log-list" class="log-list"></ol>
+          <details class="raw-state">
+            <summary>Raw match snapshot</summary>
+            <pre id="raw-state-output"></pre>
+          </details>
+        </article>
+      </section>
+
+      <aside class="debug-column">
+        <article id="player-editor-player" class="debug-card"></article>
+        <article id="player-editor-enemy" class="debug-card"></article>
+      </aside>
+    </section>
+  </main>
+
+  <script src="../game-engine.js"></script>
+  <script src="../debug-shared.js"></script>
+  <script src="debug.js"></script>
+</body>
+</html>
