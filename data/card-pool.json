@@ -11,10 +11,10 @@
     "csvSlot": "1/3",
     "reverseDamage": 5,
     "missDamage": 1,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Brawler",
-    "// effect": "When played in Slot 1, defender has Disadvantage."
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Brawler",
+    "effect": "When played in Slot 1, defender has Disadvantage."
   },
   {
     "id": "spear",
@@ -28,10 +28,10 @@
     "csvSlot": "1/3",
     "reverseDamage": 7,
     "missDamage": 7,
-    "// stun": "",
-    "// raritySymbol": "❋",
-    "// category": "Brawler",
-    "// effect": "On success, immediately Pin."
+    "stun": "",
+    "raritySymbol": "❋",
+    "category": "Brawler",
+    "effect": "On success, immediately Pin."
   },
   {
     "id": "big_boot",
@@ -45,10 +45,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 3,
     "missDamage": 3,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Brawler",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Brawler",
+    "effect": ""
   },
   {
     "id": "headbutt",
@@ -62,10 +62,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 6,
     "missDamage": 6,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Brawler",
-    "// effect": "On success, attacker takes 3 self-damage."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Brawler",
+    "effect": "On success, attacker takes 3 self-damage."
   },
   {
     "id": "wild_swing",
@@ -79,10 +79,10 @@
     "csvSlot": "1/2/3",
     "reverseDamage": 4,
     "missDamage": 4,
-    "// stun": "",
-    "// raritySymbol": "★",
-    "// category": "Brawler",
-    "// effect": "If defended, attacker is Stunned."
+    "stun": "",
+    "raritySymbol": "★",
+    "category": "Brawler",
+    "effect": "If defended, attacker is Stunned."
   },
   {
     "id": "eye_rake",
@@ -96,10 +96,10 @@
     "csvSlot": "1",
     "reverseDamage": 3,
     "missDamage": 2,
-    "// stun": "Y",
-    "// raritySymbol": "●",
-    "// category": "Heel",
-    "// effect": "On success, apply Stun. On fail, add 1 Fail to own deck."
+    "stun": "Y",
+    "raritySymbol": "●",
+    "category": "Heel",
+    "effect": "On success, apply Stun. On fail, add 1 Fail to own deck."
   },
   {
     "id": "chair_shot",
@@ -113,10 +113,10 @@
     "csvSlot": "3",
     "reverseDamage": 5,
     "missDamage": 2,
-    "// stun": "Y",
-    "// raritySymbol": "❋",
-    "// category": "Heel",
-    "// effect": "On success, immediately Pin. On fail, add 2 Fails to own deck."
+    "stun": "Y",
+    "raritySymbol": "❋",
+    "category": "Heel",
+    "effect": "On success, immediately Pin. On fail, add 2 Fails to own deck."
   },
   {
     "id": "cheap_shot",
@@ -130,10 +130,10 @@
     "csvSlot": "1/2",
     "reverseDamage": 4,
     "missDamage": 3,
-    "// stun": "Y",
-    "// raritySymbol": "◆",
-    "// category": "Heel",
-    "// effect": "On success, opponent discards 1 at random. On fail, attacker discards 1 at random."
+    "stun": "Y",
+    "raritySymbol": "◆",
+    "category": "Heel",
+    "effect": "On success, opponent discards 1 at random. On fail, attacker discards 1 at random."
   },
   {
     "id": "ref_distraction",
@@ -147,10 +147,10 @@
     "csvSlot": "1/2",
     "reverseDamage": 0,
     "missDamage": 0,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Heel",
-    "// effect": "The next Heel move you play this turn ignores its negative fail effect. On fail, add 1 Fail to your own Pinfall deck."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Heel",
+    "effect": "The next Heel move you play this turn ignores its negative fail effect. On fail, add 1 Fail to your own Pinfall deck."
   },
   {
     "id": "low_blow",
@@ -164,10 +164,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 2,
     "missDamage": 3,
-    "// stun": "Y",
-    "// raritySymbol": "★",
-    "// category": "Heel",
-    "// effect": "On success, Stun + opponent discards 1. On fail, add 2 Fails to own deck."
+    "stun": "Y",
+    "raritySymbol": "★",
+    "category": "Heel",
+    "effect": "On success, Stun + opponent discards 1. On fail, add 2 Fails to own deck."
   },
   {
     "id": "hurricanrana",
@@ -181,10 +181,10 @@
     "csvSlot": "1",
     "reverseDamage": 1,
     "missDamage": 3,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "High-Flyer",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "High-Flyer",
+    "effect": ""
   },
   {
     "id": "450_splash",
@@ -198,10 +198,10 @@
     "csvSlot": "3",
     "reverseDamage": 3,
     "missDamage": 7,
-    "// stun": "",
-    "// raritySymbol": "★",
-    "// category": "High-Flyer",
-    "// effect": "On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard 2 at random."
+    "stun": "",
+    "raritySymbol": "★",
+    "category": "High-Flyer",
+    "effect": "On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard 2 at random."
   },
   {
     "id": "shooting_star_press",
@@ -215,10 +215,10 @@
     "csvSlot": "3",
     "reverseDamage": 3,
     "missDamage": 7,
-    "// stun": "",
-    "// raritySymbol": "❋",
-    "// category": "High-Flyer",
-    "// effect": "On success, immediately Pin."
+    "stun": "",
+    "raritySymbol": "❋",
+    "category": "High-Flyer",
+    "effect": "On success, immediately Pin."
   },
   {
     "id": "elbow_drop",
@@ -232,10 +232,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 4,
     "missDamage": 6,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "High-Flyer",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "High-Flyer",
+    "effect": ""
   },
   {
     "id": "frog_splash",
@@ -249,10 +249,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 3,
     "missDamage": 7,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "High-Flyer",
-    "// effect": "If played after a Taunt, defender has Disadvantage."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "High-Flyer",
+    "effect": "If played after a Taunt, defender has Disadvantage."
   },
   {
     "id": "second_rope_elbow_drop",
@@ -266,10 +266,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 2,
     "missDamage": 4,
-    "// stun": "",
-    "// raritySymbol": "★",
-    "// category": "High-Flyer",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "★",
+    "category": "High-Flyer",
+    "effect": ""
   },
   {
     "id": "german_suplex",
@@ -283,10 +283,10 @@
     "csvSlot": "2",
     "reverseDamage": 5,
     "missDamage": 2,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Power",
-    "// effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Power",
+    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
   },
   {
     "id": "suplex",
@@ -300,10 +300,10 @@
     "csvSlot": "2",
     "reverseDamage": 5,
     "missDamage": 2,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Power",
-    "// effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Power",
+    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
   },
   {
     "id": "bear_hug",
@@ -317,10 +317,10 @@
     "csvSlot": "2",
     "reverseDamage": 2,
     "missDamage": 2,
-    "// stun": "Y",
-    "// raritySymbol": "●",
-    "// category": "Power",
-    "// effect": "Submission. On success, add 1 Fail to opponent’s Pinfall deck."
+    "stun": "Y",
+    "raritySymbol": "●",
+    "category": "Power",
+    "effect": "Submission. On success, add 1 Fail to opponent’s Pinfall deck."
   },
   {
     "id": "chokeslam",
@@ -334,10 +334,10 @@
     "csvSlot": "3",
     "reverseDamage": 6,
     "missDamage": 6,
-    "// stun": "",
-    "// raritySymbol": "❋",
-    "// category": "Power",
-    "// effect": "On success, immediately Pin."
+    "stun": "",
+    "raritySymbol": "❋",
+    "category": "Power",
+    "effect": "On success, immediately Pin."
   },
   {
     "id": "powerbomb",
@@ -351,10 +351,10 @@
     "csvSlot": "3",
     "reverseDamage": 6,
     "missDamage": 6,
-    "// stun": "Y",
-    "// raritySymbol": "★",
-    "// category": "Power",
-    "// effect": "On success, add 1 Kickout! to your Pinfall deck."
+    "stun": "Y",
+    "raritySymbol": "★",
+    "category": "Power",
+    "effect": "On success, add 1 Kickout! to your Pinfall deck."
   },
   {
     "id": "spinebuster",
@@ -368,10 +368,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 5,
     "missDamage": 3,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Power",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Power",
+    "effect": ""
   },
   {
     "id": "chop",
@@ -385,10 +385,10 @@
     "csvSlot": "1",
     "reverseDamage": 1,
     "missDamage": 0,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Striker",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Striker",
+    "effect": ""
   },
   {
     "id": "jab",
@@ -402,10 +402,10 @@
     "csvSlot": "1",
     "reverseDamage": 1,
     "missDamage": 0,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Striker",
-    "// effect": "Next Attack this turn gains +1 ATK."
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Striker",
+    "effect": "Next Attack this turn gains +1 ATK."
   },
   {
     "id": "sweet_chin_music",
@@ -419,10 +419,10 @@
     "csvSlot": "3",
     "reverseDamage": 5,
     "missDamage": 7,
-    "// stun": "",
-    "// raritySymbol": "❋",
-    "// category": "Striker",
-    "// effect": "On success, immediately Pin."
+    "stun": "",
+    "raritySymbol": "❋",
+    "category": "Striker",
+    "effect": "On success, immediately Pin."
   },
   {
     "id": "body_blow",
@@ -436,10 +436,10 @@
     "csvSlot": "1/2",
     "reverseDamage": 2,
     "missDamage": 2,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Striker",
-    "// effect": ""
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Striker",
+    "effect": ""
   },
   {
     "id": "dropkick",
@@ -453,10 +453,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 3,
     "missDamage": 4,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Striker",
-    "// effect": "If played in Slot 3, +2 ATK."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Striker",
+    "effect": "If played in Slot 3, +2 ATK."
   },
   {
     "id": "trip",
@@ -470,10 +470,10 @@
     "csvSlot": "1",
     "reverseDamage": 1,
     "missDamage": 1,
-    "// stun": "",
-    "// raritySymbol": "★",
-    "// category": "Technical",
-    "// effect": "On success, opponent discards 1 at random."
+    "stun": "",
+    "raritySymbol": "★",
+    "category": "Technical",
+    "effect": "On success, opponent discards 1 at random."
   },
   {
     "id": "armbar",
@@ -487,10 +487,10 @@
     "csvSlot": "2",
     "reverseDamage": 2,
     "missDamage": 1,
-    "// stun": "",
-    "// raritySymbol": "◆",
-    "// category": "Technical",
-    "// effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "stun": "",
+    "raritySymbol": "◆",
+    "category": "Technical",
+    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
   },
   {
     "id": "figure_four",
@@ -504,10 +504,10 @@
     "csvSlot": "3",
     "reverseDamage": 4,
     "missDamage": 2,
-    "// stun": "Y",
-    "// raritySymbol": "❋",
-    "// category": "Technical",
-    "// effect": "On success, add 3 Fails to opponent’s Pinfall deck."
+    "stun": "Y",
+    "raritySymbol": "❋",
+    "category": "Technical",
+    "effect": "On success, add 3 Fails to opponent’s Pinfall deck."
   },
   {
     "id": "sharpshooter",
@@ -521,10 +521,10 @@
     "csvSlot": "3",
     "reverseDamage": 4,
     "missDamage": 2,
-    "// stun": "Y",
-    "// raritySymbol": "★",
-    "// category": "Technical",
-    "// effect": "On success, Stun + opponent discards 1."
+    "stun": "Y",
+    "raritySymbol": "★",
+    "category": "Technical",
+    "effect": "On success, Stun + opponent discards 1."
   },
   {
     "id": "irish_whip",
@@ -538,10 +538,10 @@
     "csvSlot": "1/2",
     "reverseDamage": 0,
     "missDamage": 0,
-    "// stun": "",
-    "// raritySymbol": "●",
-    "// category": "Technical",
-    "// effect": "Next Attack this turn gains +2 ATK."
+    "stun": "",
+    "raritySymbol": "●",
+    "category": "Technical",
+    "effect": "Next Attack this turn gains +2 ATK."
   },
   {
     "id": "sleeper_hold",
@@ -555,10 +555,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 2,
     "missDamage": 0,
-    "// stun": "Y",
-    "// raritySymbol": "●",
-    "// category": "Technical",
-    "// effect": "On success, apply Stun."
+    "stun": "Y",
+    "raritySymbol": "●",
+    "category": "Technical",
+    "effect": "On success, apply Stun."
   },
   {
     "id": "gun_show",
@@ -571,9 +571,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 2 / 3",
-    "// raritySymbol": "●",
-    "// effect": "Both players roll a D20. If the attacker’s roll is higher, their next Attack this turn gains +1 ATK. If the defender’s roll is higher, the opponent draws 1 card.",
-    "// cardDesignNotes": "Earthquake pose"
+    "raritySymbol": "●",
+    "effect": "Both players roll a D20. If the attacker’s roll is higher, their next Attack this turn gains +1 ATK. If the defender’s roll is higher, the opponent draws 1 card.",
+    "cardDesignNotes": "Earthquake pose"
   },
   {
     "id": "roar",
@@ -586,9 +586,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "2",
-    "// raritySymbol": "◆",
-    "// effect": "Add +2 to next Attack",
-    "// cardDesignNotes": ""
+    "raritySymbol": "◆",
+    "effect": "Add +2 to next Attack",
+    "cardDesignNotes": ""
   },
   {
     "id": "come_on",
@@ -601,9 +601,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "2 / 3",
-    "// raritySymbol": "●",
-    "// effect": "",
-    "// cardDesignNotes": ""
+    "raritySymbol": "●",
+    "effect": "",
+    "cardDesignNotes": ""
   },
   {
     "id": "hulk_up",
@@ -616,9 +616,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1",
-    "// raritySymbol": "❋",
-    "// effect": "Cards in 2nd and 3rd Slot get +2 to ATK, RVS & MSS",
-    "// cardDesignNotes": "Hogan pose"
+    "raritySymbol": "❋",
+    "effect": "Cards in 2nd and 3rd Slot get +2 to ATK, RVS & MSS",
+    "cardDesignNotes": "Hogan pose"
   },
   {
     "id": "get_hyped",
@@ -631,9 +631,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 3",
-    "// raritySymbol": "◆",
-    "// effect": "Remove Stun",
-    "// cardDesignNotes": ""
+    "raritySymbol": "◆",
+    "effect": "Remove Stun",
+    "cardDesignNotes": ""
   },
   {
     "id": "fwahhh",
@@ -646,9 +646,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 3",
-    "// raritySymbol": "★",
-    "// effect": "Both players discard 1 card at random",
-    "// cardDesignNotes": "Steve Blackman pose"
+    "raritySymbol": "★",
+    "effect": "Both players discard 1 card at random",
+    "cardDesignNotes": "Steve Blackman pose"
   },
   {
     "id": "gyrate_hips",
@@ -661,9 +661,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 2",
-    "// raritySymbol": "★",
-    "// effect": "Add Kickout! cards to your Pinfall deck equal to the slot played (1 if Slot 1, 2 if Slot 2).",
-    "// cardDesignNotes": "Jimmy Del Ray"
+    "raritySymbol": "★",
+    "effect": "Add Kickout! cards to your Pinfall deck equal to the slot played (1 if Slot 1, 2 if Slot 2).",
+    "cardDesignNotes": "Jimmy Del Ray"
   },
   {
     "id": "strut",
@@ -676,9 +676,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "3",
-    "// raritySymbol": "❋",
-    "// effect": "Add 1 Kickout! card to your Pinfall deck",
-    "// cardDesignNotes": ""
+    "raritySymbol": "❋",
+    "effect": "Add 1 Kickout! card to your Pinfall deck",
+    "cardDesignNotes": ""
   },
   {
     "id": "yell_at_crowd",
@@ -691,9 +691,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "2 / 3",
-    "// raritySymbol": "●",
-    "// effect": "Both players discard 1 card at random",
-    "// cardDesignNotes": ""
+    "raritySymbol": "●",
+    "effect": "Both players discard 1 card at random",
+    "cardDesignNotes": ""
   },
   {
     "id": "shush",
@@ -706,9 +706,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 2",
-    "// raritySymbol": "●",
-    "// effect": "Add +1 to next Attack",
-    "// cardDesignNotes": ""
+    "raritySymbol": "●",
+    "effect": "Add +1 to next Attack",
+    "cardDesignNotes": ""
   },
   {
     "id": "air_guitar",
@@ -721,9 +721,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "1 / 2 / 3",
-    "// raritySymbol": "◆",
-    "// effect": "Draw 1 card, then discard 1 card at random",
-    "// cardDesignNotes": ""
+    "raritySymbol": "◆",
+    "effect": "Draw 1 card, then discard 1 card at random",
+    "cardDesignNotes": ""
   },
   {
     "id": "complain_to_ref",
@@ -736,9 +736,9 @@
     "onSlotEffect": [],
     "offSlotEffect": [],
     "csvSlot": "3",
-    "// raritySymbol": "★",
-    "// effect": "Both players roll a D20. If the attacker’s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender’s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck.",
-    "// cardDesignNotes": ""
+    "raritySymbol": "★",
+    "effect": "Both players roll a D20. If the attacker’s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender’s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck.",
+    "cardDesignNotes": ""
   },
   {
     "id": "pin",

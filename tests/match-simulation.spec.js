@@ -12,7 +12,7 @@ const deckRecipe = require("../data/deck-recipe.json");
 const wrestlers = require("../data/wrestlers.json");
 
 // Global simulation size. Increase/decrease this for analysis runs.
-const MATCH_SIMULATION_COUNT = 2000;
+const MATCH_SIMULATION_COUNT = Number(process.env.MATCH_SIMULATION_COUNT || 2000);
 
 function buildCardLookup(cards) {
   return Object.fromEntries(cards.map((card) => [card.id, card]));
@@ -30,7 +30,7 @@ function makeRandomSource(seed) {
 }
 
 function cloneWrestler(wrestler) {
-  return { name: wrestler.name };
+  return { name: wrestler.name, category: wrestler.category };
 }
 
 function createRandomMatch(random) {
