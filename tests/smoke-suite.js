@@ -69,7 +69,7 @@ function simulateSingleMatch(cardLookup) {
 function main() {
   const cardLookup = buildCardLookup(cardPool);
   const expectedByType = {
-    attack: 24,
+    attack: 26,
     taunt: 12,
     pin: 4,
     dodge: 4,
@@ -77,19 +77,25 @@ function main() {
   };
 
   const recipeSize = deckRecipe.reduce((sum, entry) => sum + Number(entry.count || 0), 0);
-  assert.equal(recipeSize, 48, "Deck recipe must total 48 cards");
+  assert.equal(recipeSize, 50, "Deck recipe must total 50 cards");
+  const commentedKeys = cardPool.flatMap((card) => Object.keys(card).filter((key) => key.startsWith("// ")));
+  assert.equal(commentedKeys.length, 0, "card-pool should not contain commented metadata keys");
 
   for (const wrestler of wrestlers) {
     assert.ok(wrestler.name, "Wrestler must have a name");
     assert.ok(wrestler.category, `Wrestler ${wrestler.name} must have a category`);
 
     const deck = Engine.buildDeckForWrestler(wrestler, cardLookup, deckRecipe);
-    assert.equal(deck.length, 48, `Deck for ${wrestler.name} must have 48 cards`);
+    assert.equal(deck.length, 50, `Deck for ${wrestler.name} must have 50 cards`);
 
     const byType = {};
+    const byRarity = {};
+    const byCardId = {};
     let categoryAttackCount = 0;
     for (const card of deck) {
       byType[card.type] = (byType[card.type] || 0) + 1;
+      byRarity[card.rarity] = (byRarity[card.rarity] || 0) + 1;
+      byCardId[card.id] = (byCardId[card.id] || 0) + 1;
       if (card.type === "attack" && String(card.category || "").toLowerCase() === String(wrestler.category).toLowerCase()) {
         categoryAttackCount += 1;
       }
@@ -98,6 +104,13 @@ function main() {
     for (const [type, count] of Object.entries(expectedByType)) {
       assert.equal(byType[type] || 0, count, `${wrestler.name} deck should have ${count} ${type} cards`);
     }
+    for (const [cardId, count] of Object.entries(byCardId)) {
+      const source = cardLookup[cardId];
+      const rarity = source?.rarity || "common";
+      const limit = rarity === "common" ? 4 : rarity === "uncommon" ? 3 : 2;
+      assert.ok(count <= limit, `${wrestler.name} exceeds copy limit for ${cardId} (${rarity})`);
+    }
+    assert.ok((byRarity.special || 0) >= 2, `${wrestler.name} should include special cards when available`);
     assert.ok(categoryAttackCount > 0, `${wrestler.name} should have at least one category attack`);
   }
 

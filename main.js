@@ -6,7 +6,7 @@ if (!Engine) {
 }
 
 const DEFAULT_PLAYER_WRESTLER = "Jamie 'The Best Wrestler & Fit' Wyatt";
-const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 1 };
+const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 2 };
 const AI_STEP_DELAY = 1000;
 
 const DATA_FILES = {
@@ -33,7 +33,6 @@ const app = {
     pinCountRunning: false,
     lastHandledLogIndex: 0,
     lastShownRollOffId: 0,
-    moveToastTimer: null,
     cardModalExpandTimer: null,
     handInspectorView: null
   },
@@ -76,9 +75,6 @@ const dom = {
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
   cardModalImage: document.getElementById("card-modal-image"),
-  cardModalMeta: document.getElementById("card-modal-meta"),
-  cardModalValue: document.getElementById("card-modal-value"),
-  cardModalReason: document.getElementById("card-modal-reason"),
   cardModalEffect: document.getElementById("card-modal-effect"),
   cardModalAction: document.getElementById("card-modal-action"),
   pinModalTitle: document.getElementById("pin-modal-title"),
@@ -93,7 +89,6 @@ const dom = {
   pinCountOverlay: document.getElementById("pin-count-overlay"),
   pinCountValue: document.getElementById("pin-count-value"),
   outcomeBanner: document.getElementById("outcome-banner"),
-  moveToast: document.getElementById("move-toast"),
   sequenceCombo: document.getElementById("sequence-combo"),
   sequenceSlots: document.getElementById("sequence-slots"),
   handCards: document.getElementById("hand-cards"),
@@ -304,9 +299,6 @@ async function boot() {
     const sharedSession = readSharedSession();
     if (sharedSession) {
       app.settings = normalizeMatchSettings(sharedSession.settings);
-      if (applySharedSession(sharedSession, { render: true })) {
-        return;
-      }
     }
 
     startMatch(app);
@@ -342,8 +334,8 @@ async function loadGameData() {
 
 function validateGameData() {
   const baseDeckSize = gameData.deckRecipe.reduce((sum, entry) => sum + entry.count, 0);
-  if (baseDeckSize !== 48) {
-    throw new Error(`Base maneuver recipe must total 48 cards. Found ${baseDeckSize}.`);
+  if (baseDeckSize !== 50) {
+    throw new Error(`Base maneuver recipe must total 50 cards. Found ${baseDeckSize}.`);
   }
 
   gameData.deckRecipe.forEach((entry) => {
@@ -385,8 +377,8 @@ function validateGameData() {
 }
 
 function validateDeckForWrestler(deck, wrestlerName) {
-  if (deck.length !== 48) {
-    throw new Error(`${wrestlerName}'s deck must contain exactly 48 cards.`);
+  if (deck.length !== 50) {
+    throw new Error(`${wrestlerName}'s deck must contain exactly 50 cards.`);
   }
 
   const counts = {};
@@ -435,7 +427,6 @@ function startMatch(currentApp) {
   currentApp.settings = normalizeMatchSettings(currentApp.settings);
   clearScheduledCalls(currentApp);
   stopPinCountOverlay();
-  hideMoveToast();
   currentApp.ui.lastHandledLogIndex = 0;
   currentApp.ui.lastShownRollOffId = 0;
   closeCardModal();
@@ -466,14 +457,20 @@ function startMatch(currentApp) {
 
 function pickMatchupFromSettings(settings) {
   const roster = gameData.wrestlers;
-  const preferredPlayerName = settings.playerTemplateName || DEFAULT_PLAYER_WRESTLER;
-  const playerTemplate = roster.find((wrestler) => wrestler.name === preferredPlayerName) || roster[0];
+  const playerTemplate = pickRandomWrestlerTemplate(roster);
   const enemyTemplate = pickEnemyTemplate(roster, playerTemplate, settings.enemyTemplateName);
 
   return {
     player: cloneWrestler(playerTemplate),
     enemy: cloneWrestler(enemyTemplate)
   };
+}
+
+function pickRandomWrestlerTemplate(roster) {
+  if (!Array.isArray(roster) || roster.length === 0) {
+    throw new Error("No wrestlers are available for matchup selection.");
+  }
+  return roster[Math.floor(Math.random() * roster.length)];
 }
 
 function pickEnemyTemplate(roster, playerTemplate, enemyTemplateName) {
@@ -538,6 +535,7 @@ function maybeRunAiFlow() {
 
   if (
     (app.state.phase === Engine.PHASES.RESOLVE_ATTACK ||
+      app.state.phase === Engine.PHASES.RESOLVE_TAUNT ||
       app.state.phase === Engine.PHASES.PIN_DEFENCE_DECISION) &&
     app.state.resolution.awaitingDefenceChoice
   ) {
@@ -600,7 +598,6 @@ function scheduleCall(currentApp, delay, callback) {
 function clearScheduledCalls(currentApp) {
   currentApp.timers.forEach((timeoutId) => window.clearTimeout(timeoutId));
   currentApp.timers.clear();
-  hideMoveToast();
 }
 
 function renderApp(currentApp) {
@@ -634,7 +631,7 @@ function processNewMatchLog(state) {
 
     const toast = moveToastMessageFromLogEntry(entry);
     if (toast) {
-      showMoveToast(toast);
+      startPinCountOverlay(toast, 1300);
     }
   }
 }
@@ -658,65 +655,18 @@ function maybeHandlePinCountFromLogEntry(entry) {
 function moveToastMessageFromLogEntry(entry) {
   const playMatch = entry.match(/^(.+?) plays (.+?) into slot \d+/);
   if (playMatch) {
-    return `${playMatch[1].trim()} used ${playMatch[2].trim()}!`;
+    return `${playMatch[1].trim()} played ${playMatch[2].trim()}`;
   }
 
-  const attackSuccessSuffix = "'s turn ends immediately.";
-  if (entry.endsWith(attackSuccessSuffix) && /\s(reverses|dodges)\s/.test(entry)) {
-    const head = entry.slice(0, -attackSuccessSuffix.length);
-    const lastClauseBreak = head.lastIndexOf(". ");
-    if (lastClauseBreak !== -1) {
-      const defenceClause = head.slice(0, lastClauseBreak);
-      const clauseMatch = defenceClause.match(/^(.+?) (reverses|dodges) (.+)$/);
-      if (clauseMatch) {
-        const who = clauseMatch[1].trim();
-        return clauseMatch[2] === "reverses" ? `${who} used a reversal!` : `${who} used a dodge!`;
-      }
-    }
-  }
-
-  const pinReverse = entry.match(/^(.+?) reverses the pin onto (.+)\.$/);
-  if (pinReverse) {
-    return `${pinReverse[1].trim()} used a reversal!`;
-  }
-
-  const pinDodge = entry.match(/^(.+?) dodges the pin from (.+)\.$/);
-  if (pinDodge) {
-    return `${pinDodge[1].trim()} used a dodge!`;
+  const defencePlayMatch = entry.match(/^(.+?) plays (.+?) for defence\.$/);
+  if (defencePlayMatch) {
+    return `${defencePlayMatch[1].trim()} played ${defencePlayMatch[2].trim()}`;
   }
 
   return null;
 }
 
-function showMoveToast(message) {
-  if (!dom.moveToast) {
-    return;
-  }
-
-  window.clearTimeout(app.ui.moveToastTimer);
-  dom.moveToast.textContent = message;
-  dom.moveToast.hidden = false;
-  dom.moveToast.classList.remove("move-toast--visible");
-  void dom.moveToast.offsetWidth;
-  dom.moveToast.classList.add("move-toast--visible");
-
-  app.ui.moveToastTimer = window.setTimeout(() => {
-    hideMoveToast();
-  }, 2800);
-}
-
-function hideMoveToast() {
-  window.clearTimeout(app.ui.moveToastTimer);
-  app.ui.moveToastTimer = null;
-  if (!dom.moveToast) {
-    return;
-  }
-  dom.moveToast.classList.remove("move-toast--visible");
-  dom.moveToast.hidden = true;
-  dom.moveToast.textContent = "";
-}
-
-function startPinCountOverlay(value) {
+function startPinCountOverlay(value, durationMs = 1000) {
   if (!dom.pinCountOverlay || !dom.pinCountValue) {
     return;
   }
@@ -732,7 +682,7 @@ function startPinCountOverlay(value) {
       app.ui.pinCountRunning = false;
       dom.pinCountOverlay.hidden = true;
       app.ui.pinCountTimers = [];
-    }, 1000)
+    }, durationMs)
   );
 }
 
@@ -753,6 +703,7 @@ function setPinCountOverlayValue(text) {
   }
 
   dom.pinCountValue.textContent = text;
+  dom.pinCountValue.classList.toggle("pin-count-overlay__value--phrase", String(text).length > 12);
   dom.pinCountValue.classList.remove("pin-count-overlay__value--animate");
   void dom.pinCountValue.offsetWidth;
   dom.pinCountValue.classList.add("pin-count-overlay__value--animate");
@@ -1123,6 +1074,24 @@ function buildActionModel(state) {
 
 function buildPlayerDefenceModel(state, isPin) {
   const attackCard = state.resolution.card;
+  if (state.resolution.awaitingCoinCall) {
+    return {
+      title: isPin ? "Pin Defence Readied" : `Defence Readied (Slot ${state.resolution.slot})`,
+      text: `${state.resolution.defence?.card?.name || "Defence card"} is ready.`,
+      outcome: "Press Roll-Off to trigger the roll.",
+      phase: isPin ? "Pin defence" : "Attack defence",
+      buttons: [
+        {
+          label: "Roll-Off",
+          tone: "action-button--primary",
+          onClick: () => {
+            Engine.callDefenceCoin(app.state);
+            refreshApp();
+          }
+        }
+      ]
+    };
+  }
 
   return {
     title: isPin ? "Pin Incoming" : `Defend Slot ${state.resolution.slot}`,
@@ -1409,7 +1378,6 @@ function closePinModal() {
 function openCardModal(currentApp, entry) {
   const { state } = currentApp;
   const card = entry.card;
-  const cardReason = entry.mode.reason || "";
 
   closeLogModal();
   closeHandInspectorModal();
@@ -1417,11 +1385,7 @@ function openCardModal(currentApp, entry) {
   renderCardModalImage(card);
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
-  dom.cardModalMeta.textContent = formatCardSlot(card);
-  dom.cardModalValue.textContent = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
-  dom.cardModalReason.textContent = cardReason;
-  dom.cardModalReason.hidden = !cardReason;
-  dom.cardModalEffect.textContent = describeCard(card);
+  dom.cardModalEffect.textContent = getCardEffectText(card);
 
   if (entry.mode.clickable) {
     dom.cardModalAction.hidden = false;
@@ -1435,7 +1399,6 @@ function openCardModal(currentApp, entry) {
 
       if (state.resolution?.defenderKey === "player" && state.resolution.awaitingDefenceChoice) {
         Engine.prepareDefence(app.state, entry.handIndex);
-        Engine.callDefenceCoin(app.state);
         refreshApp();
         return;
       }
@@ -1464,11 +1427,7 @@ function openSequenceCardModal(card) {
   renderCardModalImage(card);
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
-  dom.cardModalMeta.textContent = formatCardSlot(card);
-  dom.cardModalValue.textContent = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
-  dom.cardModalReason.textContent = "Played in sequence";
-  dom.cardModalReason.hidden = false;
-  dom.cardModalEffect.textContent = describeCard(card);
+  dom.cardModalEffect.textContent = getCardEffectText(card);
   dom.cardModalAction.hidden = true;
   dom.cardModalAction.disabled = true;
   dom.cardModalAction.onclick = null;
@@ -1835,6 +1794,10 @@ function formatCardPrimaryLabel(card) {
   }
 
   return "Defense";
+}
+
+function getCardEffectText(card) {
+  return String(card?.effect || "").trim();
 }
 
 function describeCard(card) {

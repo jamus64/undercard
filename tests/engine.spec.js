@@ -122,7 +122,7 @@ function continueTurn(state) {
   Engine.continueAfterTurnEnd(state);
 }
 
-test("draws to 6 with discard reshuffle", () => {
+test("cannot draw from discard and loses by deck exhaustion", () => {
   const state = makeMatch({
     initiativeWinner: "enemy",
     playerDeck: deckFromOpeningHand([attack("p1", 1, 5)]),
@@ -140,10 +140,9 @@ test("draws to 6 with discard reshuffle", () => {
   Engine.stopTurn(state);
   continueTurn(state);
 
-  expect(state.turn.attackerKey).toBe("player");
-  expect(state.players.player.hand).toHaveLength(6);
-  expect(state.players.player.maneuverDeck).toHaveLength(1);
-  expect(state.players.player.discardPile).toHaveLength(0);
+  expect(state.match.over).toBeTruthy();
+  expect(state.match.winnerKey).toBe("enemy");
+  expect(state.match.reason).toContain("wins by deck exhaustion");
 });
 
 test("exhaust pile never reshuffles", () => {
@@ -174,6 +173,25 @@ test("exhaust pile never reshuffles", () => {
   expect(idsInPlay).not.toContain("exhaust_1");
   expect(idsInPlay).not.toContain("exhaust_2");
   expect(state.players.player.exhaustPile).toHaveLength(2);
+});
+
+test("player loses by deck exhaustion immediately at draw phase", () => {
+  const state = makeMatch({
+    initiativeWinner: "enemy",
+    playerDeck: deckFromOpeningHand([attack("p1", 1, 5)]),
+    enemyDeck: deckFromOpeningHand([attack("e1", 1, 5)])
+  });
+
+  state.players.player.hand = [attack("last_play", 1, 4)];
+  state.players.player.maneuverDeck = [];
+  state.players.player.discardPile = [];
+
+  Engine.stopTurn(state);
+  continueTurn(state);
+
+  expect(state.match.over).toBeTruthy();
+  expect(state.match.winnerKey).toBe("enemy");
+  expect(state.match.reason).toContain("wins by deck exhaustion");
 });
 
 test("enforces sequential slots without manual slot choice", () => {
@@ -296,31 +314,46 @@ test("successful reversal applies reverseDamage to attacker", () => {
   expect(state.log.some((entry) => entry.includes("Counter-damage to") && entry.includes(": 6."))).toBeTruthy();
 });
 
-test("taunts are undefendable on-slot and off-slot", () => {
-  const onSlotState = makeMatch({
+test("successful taunt defence cancels taunt and ends attacker's turn", () => {
+  const state = makeMatch({
+    random: [0.1, 0.75],
     playerDeck: deckFromOpeningHand([
       taunt("on_slot_taunt", 1, [{ type: "add_pinfall", card: "Fail", target: "opponent", amount: 1 }], [])
     ]),
-    enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
+    enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
 
-  const offSlotState = makeMatch({
+  const failStart = failCount(state, "enemy");
+
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+
+  expect(failCount(state, "enemy")).toBe(failStart);
+  expect(state.phase).toBe(Engine.PHASES.TURN_END);
+  continueTurn(state);
+  expect(state.turn.attackerKey).toBe("enemy");
+  expect(state.log.some((entry) => entry.includes("turn ends immediately"))).toBeTruthy();
+});
+
+test("failed taunt defence allows taunt effect to resolve", () => {
+  const state = makeMatch({
+    random: [0.75, 0.1],
     playerDeck: deckFromOpeningHand([
-      taunt("off_slot_taunt", 2, [{ type: "add_pinfall", card: "Fail", target: "opponent", amount: 1 }], [])
+      taunt("on_slot_taunt", 1, [{ type: "add_pinfall", card: "Fail", target: "opponent", amount: 1 }], [])
     ]),
-    enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
+    enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
 
-  const onSlotFailStart = failCount(onSlotState, "enemy");
-  const offSlotFailStart = failCount(offSlotState, "enemy");
+  const failStart = failCount(state, "enemy");
 
-  Engine.playOffensiveCard(onSlotState, 0, "player");
-  Engine.playOffensiveCard(offSlotState, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
 
-  expect(failCount(onSlotState, "enemy")).toBe(onSlotFailStart + 1);
-  expect(failCount(offSlotState, "enemy")).toBe(offSlotFailStart);
-  expect(onSlotState.players.enemy.hand).toHaveLength(6);
-  expect(offSlotState.players.enemy.hand).toHaveLength(6);
+  expect(failCount(state, "enemy")).toBe(failStart + 1);
+  expect(state.phase).toBe(Engine.PHASES.CHOOSE_NEXT_ACTION);
+  expect(state.log.some((entry) => entry.includes("uses on_slot_taunt"))).toBeTruthy();
 });
 
 test("playing a pin ends the offensive sequence and enters pin flow", () => {

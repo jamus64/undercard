@@ -20,7 +20,7 @@
     common: 4,
     uncommon: 3,
     rare: 2,
-    special: 1
+    special: 2
   });
 
   function createDefaultSettings(overrides) {

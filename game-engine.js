@@ -20,7 +20,7 @@
     common: 4,
     uncommon: 3,
     rare: 2,
-    special: 1
+    special: 2
   };
 
   const PHASES = {
@@ -184,6 +184,20 @@
         state,
         `${getPlayer(state, attackerKey).name} draws ${drawResult.drawn} ${pluralize("card", drawResult.drawn)}.`
       );
+    }
+    if (drawResult.exhausted) {
+      const attacker = getPlayer(state, attackerKey);
+      const defender = getPlayer(state, defenderKey);
+      addLog(
+        state,
+        `${attacker.name} cannot draw from the maneuver deck. ${defender.name} wins by deck exhaustion.`
+      );
+      endMatch(
+        state,
+        defenderKey,
+        `${defender.name} wins by deck exhaustion. ${attacker.name} has no maneuver cards left to draw.`
+      );
+      return state;
     }
 
     transitionToChooseNextAction(state);
@@ -637,18 +651,11 @@
   function drawToHand(state, playerKey, targetSize) {
     const player = getPlayer(state, playerKey);
     let drawn = 0;
+    let exhausted = false;
 
     while (player.hand.length < targetSize) {
       if (player.maneuverDeck.length === 0) {
-        if (player.discardPile.length === 0) {
-          break;
-        }
-
-        player.maneuverDeck = shuffleArray(player.discardPile.splice(0), state.meta.random);
-        addLog(state, `${player.name} reshuffles the discard pile into the maneuver deck.`);
-      }
-
-      if (player.maneuverDeck.length === 0) {
+        exhausted = true;
         break;
       }
 
@@ -656,7 +663,7 @@
       drawn += 1;
     }
 
-    return { drawn };
+    return { drawn, exhausted: exhausted && player.hand.length < targetSize };
   }
 
   function transitionToChooseNextAction(state) {
@@ -740,7 +747,7 @@
 
     if (card.type === "taunt") {
       transitionTo(state, PHASES.RESOLVE_TAUNT);
-      resolveTaunt(state);
+      beginTauntResolution(state);
       return state;
     }
 
@@ -778,6 +785,19 @@
     state.outcome = "Choose dodge, reversal, or no defence.";
   }
 
+  function beginTauntResolution(state) {
+    const defenderKey = state.resolution.defenderKey;
+    if (getDefenseOptions(state, defenderKey).length === 0) {
+      recordNoDefence(state);
+      resolveTauntLanding(state);
+      return;
+    }
+
+    state.resolution.awaitingDefenceChoice = true;
+    state.status = `${getPlayer(state, defenderKey).name} chooses a defence.`;
+    state.outcome = state.resolution.onSlot ? "Normal defence odds." : "Defender has advantage.";
+  }
+
   function chooseNoDefence(state) {
     assertActiveMatch(state);
     assertAwaitingDefenceChoice(state);
@@ -786,6 +806,11 @@
 
     if (state.resolution.kind === "attack") {
       resolveAttackLanding(state);
+      return state;
+    }
+
+    if (state.resolution.kind === "taunt") {
+      resolveTauntLanding(state);
       return state;
     }
 
@@ -827,9 +852,9 @@
       coinMode: state.resolution.defence.coinMode
     });
 
-    state.status = `${defender.name} readies ${defenceCard.name}.`;
+    state.status = `${defender.name} plays ${defenceCard.name} for defence.`;
     state.outcome = buildCoinModeDescription(state.resolution.defence.coinMode);
-    addLog(state, `${defender.name} readies ${defenceCard.name}.`);
+    addLog(state, `${defender.name} plays ${defenceCard.name} for defence.`);
     return state;
   }
 
@@ -902,6 +927,11 @@
 
     if (state.resolution.kind === "attack") {
       resolveAttackDefenceResult(state);
+      return state;
+    }
+
+    if (state.resolution.kind === "taunt") {
+      resolveTauntDefenceResult(state);
       return state;
     }
 
@@ -984,7 +1014,31 @@
     state.status = slotRecord.result;
   }
 
-  function resolveTaunt(state) {
+  function resolveTauntDefenceResult(state) {
+    const defence = state.resolution.defence;
+    const defender = getPlayer(state, state.resolution.defenderKey);
+    const attacker = getPlayer(state, state.resolution.attackerKey);
+
+    moveCardAfterUse(state, defence.actorKey, defence.card);
+
+    if (defence.success) {
+      addLog(
+        state,
+        `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately.`
+      );
+      finalizeTauntCard(state, `Defended by ${capitalize(defence.choice)}`, false);
+      finishTurn(state, "successful_defence");
+      return;
+    }
+
+    addLog(
+      state,
+      `${defender.name}'s ${defence.card.name} fails and ${state.resolution.card.name} resolves.`
+    );
+    resolveTauntLanding(state);
+  }
+
+  function resolveTauntLanding(state) {
     const resolution = state.resolution;
     const attacker = getPlayer(state, resolution.attackerKey);
     const defender = getPlayer(state, resolution.defenderKey);
@@ -995,16 +1049,20 @@
       `${attacker.name} uses ${resolution.card.name}${formatSlotStatus(resolution.onSlot)}. ${resolution.onSlot ? "On-slot effect." : "Reduced off-slot effect."}`
     );
     applyEffects(state, effects, resolution.attackerKey, resolution.defenderKey, resolution.card.name);
-    const destination = moveCardAfterUse(state, resolution.attackerKey, resolution.card);
-    const slotRecord = getTurnSlot(state, resolution.slot);
-
-    slotRecord.result = resolution.onSlot ? "Taunt resolved" : "Taunt resolved off-slot";
-    slotRecord.destination = destination;
-    slotRecord.countedForCombo = Boolean(resolution.onSlot);
+    finalizeTauntCard(state, resolution.onSlot ? "Taunt resolved" : "Taunt resolved off-slot", Boolean(resolution.onSlot));
     state.status = `${attacker.name} resolves ${resolution.card.name}.`;
-    state.outcome = `${defender.name} cannot defend taunts.`;
+    state.outcome = `${defender.name} takes the taunt effect.`;
 
     advanceAfterResolvedOffense(state);
+  }
+
+  function finalizeTauntCard(state, resultLabel, countedForCombo) {
+    const resolution = state.resolution;
+    const destination = moveCardAfterUse(state, resolution.attackerKey, resolution.card);
+    const slotRecord = getTurnSlot(state, resolution.slot);
+    slotRecord.result = resultLabel;
+    slotRecord.destination = destination;
+    slotRecord.countedForCombo = countedForCombo;
   }
 
   function resolvePinDefenceResult(state) {

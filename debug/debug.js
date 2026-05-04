@@ -147,8 +147,8 @@ function validateGameData() {
   }
 
   const baseDeckSize = gameData.deckRecipe.reduce((sum, entry) => sum + Number(entry.count || 0), 0);
-  if (baseDeckSize !== 48) {
-    throw new Error(`Expected a 48-card base recipe. Found ${baseDeckSize}.`);
+  if (baseDeckSize !== 50) {
+    throw new Error(`Expected a 50-card base recipe. Found ${baseDeckSize}.`);
   }
 
   gameData.wrestlers.forEach((wrestler) => {
