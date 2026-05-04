@@ -188,7 +188,13 @@ function buildCardLibrary() {
 
 function buildCardLibraryLabel(entry) {
   const card = entry.card;
-  const slotLabel = card.validSlot === "any" ? "Any" : card.validSlot === null ? "Def" : `S${card.validSlot}`;
+  const slotLabel = card.validSlot === "any"
+    ? "Any"
+    : Array.isArray(card.slotOptions) && card.slotOptions.length > 1
+      ? `S${card.slotOptions.join("/")}`
+      : card.validSlot === null
+        ? "Def"
+        : `S${card.validSlot}`;
   const statLabel = card.type === "attack" ? `${card.damage} dmg` : card.type === "pin" ? "Pin" : "Utility";
   const ownerLabel = entry.isSignature ? ` / ${entry.wrestlerName}` : "";
   return `${capitalize(card.type)} / ${card.name} / ${slotLabel} / ${statLabel}${ownerLabel}`;
@@ -537,7 +543,15 @@ function renderSequenceTrack() {
         ? `Defence: ${slot.defence.choice}${slot.defence.cardName ? ` / ${slot.defence.cardName}` : ""}`
         : "Defence: none";
       const meta = card
-        ? `${capitalize(card.type)} / ${card.validSlot === "any" ? "Any slot" : card.validSlot === null ? "Defence" : `Slot ${card.validSlot}`}`
+        ? `${capitalize(card.type)} / ${
+            card.validSlot === "any"
+              ? "Any slot"
+              : Array.isArray(card.slotOptions) && card.slotOptions.length > 1
+                ? `Slots ${card.slotOptions.join("/")}`
+                : card.validSlot === null
+                  ? "Defence"
+                  : `Slot ${card.validSlot}`
+          }`
         : "Open";
 
       return `
@@ -759,7 +773,13 @@ function buildHandMarkup(playerKey, player) {
   return player.hand
     .map((card, handIndex) => {
       const playModel = getPlayableActionForCard(playerKey, handIndex, card);
-      const slotLabel = card.validSlot === "any" ? "Any slot" : card.validSlot === null ? "Defence" : `Slot ${card.validSlot}`;
+      const slotLabel = card.validSlot === "any"
+        ? "Any slot"
+        : Array.isArray(card.slotOptions) && card.slotOptions.length > 1
+          ? `Slots ${card.slotOptions.join("/")}`
+          : card.validSlot === null
+            ? "Defence"
+            : `Slot ${card.validSlot}`;
       const valueLabel =
         card.type === "attack" ? `${card.damage} dmg` : card.type === "pin" ? "Pin" : card.afterUse === "exhaust" ? "Exhaust" : "Utility";
 
