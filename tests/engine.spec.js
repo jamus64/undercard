@@ -8,6 +8,8 @@ function attack(id, slot, damage, extras = {}) {
     type: "attack",
     validSlot: slot,
     damage,
+    reverseDamage: extras.reverseDamage || 0,
+    missDamage: extras.missDamage || 0,
     afterUse: extras.afterUse || "discard",
     onSlotEffect: extras.onSlotEffect || [],
     offSlotEffect: extras.offSlotEffect || [],
@@ -262,6 +264,36 @@ test("successful defence ends the attacker's turn immediately", () => {
   expect(state.turn.attackerKey).toBe("enemy");
   expect(state.players.enemy.damage).toBe(0);
   expect(state.log.some((entry) => entry.includes("turn ends immediately"))).toBeTruthy();
+});
+
+test("successful dodge applies missDamage to attacker", () => {
+  const state = makeMatch({
+    random: [0.1, 0.75],
+    playerDeck: deckFromOpeningHand([attack("onslot_attack", 1, 8, { missDamage: 4 })]),
+    enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
+  });
+
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+
+  expect(state.players.player.damage).toBe(4);
+  expect(state.log.some((entry) => entry.includes("takes 4 damage from a missed attack"))).toBeTruthy();
+});
+
+test("successful reversal applies reverseDamage to attacker", () => {
+  const state = makeMatch({
+    random: [0.1, 0.75],
+    playerDeck: deckFromOpeningHand([attack("onslot_attack", 1, 8, { reverseDamage: 6 })]),
+    enemyDeck: deckFromOpeningHand([reversal("enemy_reversal"), attack("enemy_attack", 1, 5)])
+  });
+
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+
+  expect(state.players.player.damage).toBe(6);
+  expect(state.log.some((entry) => entry.includes("takes 6 damage from a reversal"))).toBeTruthy();
 });
 
 test("taunts are undefendable on-slot and off-slot", () => {

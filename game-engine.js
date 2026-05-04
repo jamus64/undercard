@@ -911,6 +911,17 @@
     moveCardAfterUse(state, defence.actorKey, defence.card);
 
     if (defence.success) {
+      const attackCard = state.resolution.card;
+      const counterDamage = defence.choice === "dodge" ? Number(attackCard.missDamage || 0) : Number(attackCard.reverseDamage || 0);
+      if (counterDamage > 0) {
+        const damageResult = applyDamage(state, state.resolution.attackerKey, counterDamage);
+        addLog(
+          state,
+          `${attacker.name} takes ${counterDamage} damage from ${defence.choice === "dodge" ? "a missed attack" : "a reversal"}.`
+        );
+        logDamageThresholds(state, state.resolution.attackerKey, damageResult);
+      }
+
       addLog(
         state,
         `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately.`
@@ -1807,6 +1818,8 @@
       rarity: card.rarity || "common",
       validSlot: card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null),
       damage: Number(card.damage || 0),
+      reverseDamage: Number(card.reverseDamage || 0),
+      missDamage: Number(card.missDamage || 0),
       onSlotDamage: card.onSlotDamage === undefined ? undefined : Number(card.onSlotDamage),
       offSlotDamage: card.offSlotDamage === undefined ? undefined : Number(card.offSlotDamage),
       onSlotEffect: cloneEffects(card.onSlotEffect),
