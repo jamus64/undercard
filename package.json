@@ -6,7 +6,8 @@
   "scripts": {
     "test": "npm run test:browser",
     "test:browser": "playwright test",
-    "test:all": "node tests/smoke-suite.js && UNDERCARD_MATCH_SIMULATION_COUNT=200 node tests/match-simulation.spec.js"
+    "test:all": "node tests/smoke-suite.js && node tests/match-simulation.spec.js",
+    "test:match-sim:quick": "UNDERCARD_MATCH_SIMULATION_COUNT=200 node tests/match-simulation.spec.js"
   },
   "repository": {
     "type": "git",

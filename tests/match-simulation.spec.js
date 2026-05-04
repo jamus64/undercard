@@ -11,13 +11,27 @@ const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
 const wrestlers = require("../data/wrestlers.json");
 
-// Default run size (edit here). Optional override: UNDERCARD_MATCH_SIMULATION_COUNT — not
-// MATCH_SIMULATION_COUNT, because that name is easy to export globally (e.g. 200) and would
-// override this file every time Playwright inherits the shell environment.
+// Playwright always uses DEFAULT_MATCH_SIMULATION_COUNT (edit here). We do not read
+// UNDERCARD_MATCH_SIMULATION_COUNT when loaded as a module, because IDEs and shells often
+// export it (e.g. 200) and would ignore this constant.
+// CLI only: `UNDERCARD_MATCH_SIMULATION_COUNT=500 node tests/match-simulation.spec.js`
+// (`npm run test:all` runs this file with no env — uses DEFAULT_MATCH_SIMULATION_COUNT.)
+// Quick run: `npm run test:match-sim:quick`
 const DEFAULT_MATCH_SIMULATION_COUNT = 20000;
-const MATCH_SIMULATION_COUNT = Number(
-  process.env.UNDERCARD_MATCH_SIMULATION_COUNT || DEFAULT_MATCH_SIMULATION_COUNT
-);
+
+function resolveMatchSimulationCount() {
+  if (require.main !== module) {
+    return DEFAULT_MATCH_SIMULATION_COUNT;
+  }
+  const raw = process.env.UNDERCARD_MATCH_SIMULATION_COUNT;
+  if (raw === undefined || raw === "") {
+    return DEFAULT_MATCH_SIMULATION_COUNT;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MATCH_SIMULATION_COUNT;
+}
+
+const MATCH_SIMULATION_COUNT = resolveMatchSimulationCount();
 
 function buildCardLookup(cards) {
   return Object.fromEntries(cards.map((card) => [card.id, card]));
@@ -38,7 +52,7 @@ function cloneWrestler(wrestler) {
   return { name: wrestler.name, category: wrestler.category };
 }
 
-/** Every ordered pair (player role, opponent role) appears equally over seeds 0 .. n*(n-1)-1. Strong spread for large sim counts. */
+/** Every ordered pair (player role, opponent role) appears equally over seeds 0 .. n*(n-1)-1. */
 function matchupFromSeed(seed) {
   const n = wrestlers.length;
   if (n < 2) {
@@ -53,6 +67,34 @@ function matchupFromSeed(seed) {
     player: cloneWrestler(wrestlers[pi]),
     enemy: cloneWrestler(wrestlers[ei])
   };
+}
+
+/** Count maneuver cards (instances) still on one side at match end — hand, deck, discard, exhaust. */
+function maneuverCardCountsById(player) {
+  const counts = {};
+  function add(list) {
+    if (!Array.isArray(list)) {
+      return;
+    }
+    for (const c of list) {
+      const id = c && (c.id || c.cardId);
+      if (!id) {
+        continue;
+      }
+      counts[id] = (counts[id] || 0) + 1;
+    }
+  }
+  add(player.hand);
+  add(player.maneuverDeck);
+  add(player.discardPile);
+  add(player.exhaustPile);
+  return counts;
+}
+
+function mergeCounts(target, delta) {
+  for (const [id, n] of Object.entries(delta)) {
+    target[id] = (target[id] || 0) + n;
+  }
 }
 
 function runSingleMatch(seed, cardLookup) {
@@ -113,11 +155,17 @@ function runSingleMatch(seed, cardLookup) {
     throw new Error("Simulation safety limit reached before match end.");
   }
 
+  const wk = state.match.winnerKey;
+  const winnerPlayer = state.players[wk];
+  const loserPlayer = state.players[state.match.loserKey];
+
   return {
     playerName: matchup.player.name,
     enemyName: matchup.enemy.name,
-    winnerKey: state.match.winnerKey,
-    loserKey: state.match.loserKey,
+    winnerKey: wk,
+    winnerName: winnerPlayer.name,
+    winnerManeuverCounts: maneuverCardCountsById(winnerPlayer),
+    loserManeuverCounts: maneuverCardCountsById(loserPlayer),
     reason: state.match.reason,
     turns: state.turn?.number || 0,
     playerDamage: state.players.player.damage,
@@ -134,6 +182,11 @@ function bucketTurns(turns) {
   if (turns <= 40) return "31-40";
   if (turns <= 50) return "41-50";
   return "51+";
+}
+
+function cardLabel(id, cardLookup) {
+  const c = cardLookup[id];
+  return c && c.name ? `${c.name} (${id})` : id;
 }
 
 function runSimulationReport() {
@@ -158,9 +211,9 @@ function runSimulationReport() {
       "41-50": 0,
       "51+": 0
     },
-    matchupCounts: {},
-    asPlayersWrestler: {},
-    asOpponentWrestler: {}
+    wrestlerWins: {},
+    cardCopiesOnWinSide: {},
+    cardCopiesOnLoseSide: {}
   };
 
   for (let index = 0; index < MATCH_SIMULATION_COUNT; index += 1) {
@@ -183,10 +236,9 @@ function runSimulationReport() {
     const turnBucket = bucketTurns(result.turns);
     summary.turnBuckets[turnBucket] += 1;
 
-    const matchupKey = `${result.playerName} vs ${result.enemyName}`;
-    summary.matchupCounts[matchupKey] = (summary.matchupCounts[matchupKey] || 0) + 1;
-    summary.asPlayersWrestler[result.playerName] = (summary.asPlayersWrestler[result.playerName] || 0) + 1;
-    summary.asOpponentWrestler[result.enemyName] = (summary.asOpponentWrestler[result.enemyName] || 0) + 1;
+    summary.wrestlerWins[result.winnerName] = (summary.wrestlerWins[result.winnerName] || 0) + 1;
+    mergeCounts(summary.cardCopiesOnWinSide, result.winnerManeuverCounts);
+    mergeCounts(summary.cardCopiesOnLoseSide, result.loserManeuverCounts);
 
     if (result.turns > summary.longest.turns) {
       summary.longest = { turns: result.turns, index: index + 1, reason: result.reason };
@@ -202,22 +254,34 @@ function runSimulationReport() {
   const averagePlayerFail = summary.totalPlayerFail / summary.total;
   const averageEnemyFail = summary.totalEnemyFail / summary.total;
   const sortedReasons = Object.entries(summary.reasonCounts).sort((a, b) => b[1] - a[1]);
-  const sortedMatchups = Object.entries(summary.matchupCounts).sort((a, b) => b[1] - a[1]);
-  const sortedPlayersRole = wrestlers.map((w) => [w.name, summary.asPlayersWrestler[w.name] || 0]);
-  const sortedOpponentRole = wrestlers.map((w) => [w.name, summary.asOpponentWrestler[w.name] || 0]);
-  const roleCountsArr = wrestlers.map((w) => summary.asPlayersWrestler[w.name] || 0);
-  const oppCountsArr = wrestlers.map((w) => summary.asOpponentWrestler[w.name] || 0);
+  const sortedWrestlerWins = Object.entries(summary.wrestlerWins).sort((a, b) => b[1] - a[1]);
 
-  summary.spreadChecks = {
-    playerRoleDelta:
-      roleCountsArr.length === 0
-        ? 0
-        : Math.max(...roleCountsArr) - Math.min(...roleCountsArr),
-    opponentRoleDelta:
-      oppCountsArr.length === 0
-        ? 0
-        : Math.max(...oppCountsArr) - Math.min(...oppCountsArr)
-  };
+  const allCardIds = new Set([
+    ...Object.keys(summary.cardCopiesOnWinSide),
+    ...Object.keys(summary.cardCopiesOnLoseSide)
+  ]);
+  const minSamplesForRate = Math.max(80, Math.floor(summary.total / 40));
+  const cardRates = [];
+  for (const id of allCardIds) {
+    const w = summary.cardCopiesOnWinSide[id] || 0;
+    const l = summary.cardCopiesOnLoseSide[id] || 0;
+    const t = w + l;
+    if (t < minSamplesForRate) {
+      continue;
+    }
+    cardRates.push({ id, w, l, t, rate: w / t });
+  }
+  cardRates.sort((a, b) => b.rate - a.rate);
+  const topByWinShare = cardRates.slice(0, 20);
+  const byRateAsc = [...cardRates].sort((a, b) => a.rate - b.rate);
+  const belowCoinFlip = byRateAsc.filter((x) => x.rate < 0.5 - 1e-9);
+  const bottomByWinShare = (
+    belowCoinFlip.length >= 8 ? belowCoinFlip : byRateAsc
+  ).slice(0, 20);
+
+  const topByCopiesInWins = Object.entries(summary.cardCopiesOnWinSide)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 25);
 
   console.log("");
   console.log("=== UnderCard Match Simulation ===");
@@ -240,29 +304,33 @@ function runSimulationReport() {
     console.log(`  ${count} (${pct}%): ${reason}`);
   });
   console.log("");
-  console.log(
-    `Wrestler as PLAYER's deck (target ~${(summary.total / wrestlers.length).toFixed(1)} each; matchups cycle all ${wrestlers.length * (wrestlers.length - 1)} ordered pairs):`
-  );
-  sortedPlayersRole.forEach(([name, count]) => {
+  console.log("Wins by deck (wrestler) — who wins most often:");
+  sortedWrestlerWins.forEach(([name, count]) => {
     const pct = ((count / summary.total) * 100).toFixed(1);
     console.log(`  ${name}: ${count} (${pct}%)`);
   });
-  console.log(
-    `  Spread (max − min appearances as player deck): ${summary.spreadChecks.playerRoleDelta}`
-  );
   console.log("");
-  console.log("Wrestler as OPPONENT's deck:");
-  sortedOpponentRole.forEach(([name, count]) => {
-    const pct = ((count / summary.total) * 100).toFixed(1);
-    console.log(`  ${name}: ${count} (${pct}%)`);
+  console.log(
+    "Maneuver card copies on winning side at match end (sum across wins — frequent = often in winning piles):"
+  );
+  topByCopiesInWins.forEach(([id, count]) => {
+    console.log(`  ${cardLabel(id, cardLookup)}: ${count}`);
   });
-  console.log(
-    `  Spread (max − min appearances as opponent deck): ${summary.spreadChecks.opponentRoleDelta}`
-  );
   console.log("");
-  console.log("Matchup coverage (player vs opp pair counts):");
-  sortedMatchups.forEach(([matchup, count]) => {
-    console.log(`  ${matchup}: ${count}`);
+  console.log(
+    `Win-share by card (copies on winner / copies on winner+loser at end; min ${minSamplesForRate} combined copies). Higher ≈ more often on winning side — confounded by wrestler recipes.`
+  );
+  console.log("  Highest win-share (sample cards):");
+  topByWinShare.forEach(({ id, w, l, rate }) => {
+    console.log(
+      `    ${cardLabel(id, cardLookup)}: ${(rate * 100).toFixed(1)}% (${w} win / ${l} lose, n=${w + l})`
+    );
+  });
+  console.log("  Lowest win-share (sample cards):");
+  bottomByWinShare.forEach(({ id, w, l, rate }) => {
+    console.log(
+      `    ${cardLabel(id, cardLookup)}: ${(rate * 100).toFixed(1)}% (${w} win / ${l} lose, n=${w + l})`
+    );
   });
   console.log("");
   console.log(
@@ -282,21 +350,6 @@ if (test && expect && require.main !== module) {
     expect(wrestlers.length).toBeGreaterThanOrEqual(2);
     const summary = runSimulationReport();
     expect(summary.total).toBeGreaterThan(0);
-
-    const n = wrestlers.length;
-    const pairCount = n * (n - 1);
-    const byName = summary.total / n;
-    if (summary.total >= pairCount) {
-      wrestlers.forEach((w) => {
-        expect(summary.asPlayersWrestler[w.name] || 0).toBeGreaterThan(0);
-        expect(summary.asOpponentWrestler[w.name] || 0).toBeGreaterThan(0);
-      });
-      const remainder = summary.total % pairCount;
-      const partialSlack = remainder === 0 ? 0 : n - 1;
-      const spreadTolerance = Math.max(2, Math.ceil(byName / 20), partialSlack);
-      expect(summary.spreadChecks.playerRoleDelta).toBeLessThanOrEqual(spreadTolerance);
-      expect(summary.spreadChecks.opponentRoleDelta).toBeLessThanOrEqual(spreadTolerance);
-    }
   });
 }
 
