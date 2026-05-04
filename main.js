@@ -221,8 +221,8 @@ function validateGameData() {
   });
 
   gameData.wrestlers.forEach((wrestler) => {
-    if (!wrestler.name || !wrestler.signature) {
-      throw new Error("Each wrestler needs a name and signature.");
+    if (!wrestler.name) {
+      throw new Error("Each wrestler needs a name.");
     }
 
     const deck = Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, gameData.deckRecipe);
@@ -231,8 +231,8 @@ function validateGameData() {
 }
 
 function validateDeckForWrestler(deck, wrestlerName) {
-  if (deck.length !== 49) {
-    throw new Error(`${wrestlerName}'s deck must contain exactly 49 cards.`);
+  if (deck.length !== 48) {
+    throw new Error(`${wrestlerName}'s deck must contain exactly 48 cards.`);
   }
 
   const counts = {};
@@ -319,8 +319,7 @@ function pickRandomMatchup() {
 
 function cloneWrestler(wrestler) {
   return {
-    name: wrestler.name,
-    signature: { ...wrestler.signature, onHitEffects: cloneEffects(wrestler.signature.onHitEffects) }
+    name: wrestler.name
   };
 }
 
@@ -1070,15 +1069,16 @@ function formatPercent(value) {
 function renderHand(currentApp) {
   const state = currentApp.state;
   const player = state.players.player;
-  const pinSummary = Engine.getPinfallSummary(player);
 
   const canStop = canPlayerStopEarly(state);
   dom.handMenuButton.hidden = state.match.over;
   dom.handMenuButton.disabled = state.match.over;
   dom.handMenuStopEarly.disabled = !canStop;
 
-  dom.playerPinSummary.textContent = `Fail ${pinSummary.fail} / Kickout ${pinSummary.kickout}`;
-  dom.drawPileCount.textContent = `Deck ${player.maneuverDeck.length} / Discard ${player.discardPile.length}`;
+  dom.playerPinSummary.textContent = "";
+  dom.playerPinSummary.hidden = true;
+  dom.drawPileCount.textContent = "";
+  dom.drawPileCount.hidden = true;
   dom.handCards.replaceChildren();
 
   if (player.hand.length === 0) {

@@ -1184,10 +1184,6 @@
       }
     });
 
-    if (wrestler.signature) {
-      deck.push(normalizeCard(wrestler.signature));
-    }
-
     return deck;
   }
 
