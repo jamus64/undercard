@@ -34,6 +34,7 @@ const app = {
     lastHandledLogIndex: 0,
     lastShownRollOffId: 0,
     moveToastTimer: null,
+    cardModalExpandTimer: null,
     handInspectorView: null
   },
   timers: new Set(),
@@ -74,6 +75,7 @@ const dom = {
   rollOffTitle: document.getElementById("rolloff-title"),
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
+  cardModalImage: document.getElementById("card-modal-image"),
   cardModalMeta: document.getElementById("card-modal-meta"),
   cardModalValue: document.getElementById("card-modal-value"),
   cardModalReason: document.getElementById("card-modal-reason"),
@@ -883,6 +885,7 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
   if (slotEntry.card) {
     return {
       slot: slotEntry.slot,
+      card: slotEntry.card,
       current: isCurrent,
       title: "",
       image: slotEntry.card.image || "",
@@ -906,6 +909,7 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
   if (slotEntry.slot === activeSlot) {
     return {
       slot: slotEntry.slot,
+      card: null,
       current: true,
       title: state.turn.attackerKey === "player" ? "Choose card" : "Incoming",
       image: "",
@@ -921,6 +925,7 @@ function buildSequenceSlotModel(state, slotEntry, activeSlot) {
 
   return {
     slot: slotEntry.slot,
+    card: null,
     current: false,
     title: "Waiting",
     image: "",
@@ -956,6 +961,20 @@ function buildSequenceTrackSlot(model, activeSlot) {
     image.alt = model.title || `Slot ${model.slot} card`;
     image.loading = "lazy";
     slot.appendChild(image);
+
+    if (model.card) {
+      slot.classList.add("sequence-track__slot--interactive");
+      slot.tabIndex = 0;
+      slot.setAttribute("role", "button");
+      slot.setAttribute("aria-label", `Open ${model.card.name} details`);
+      slot.addEventListener("click", () => openSequenceCardModal(model.card));
+      slot.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openSequenceCardModal(model.card);
+        }
+      });
+    }
   }
 
   if (model.title) {
@@ -1395,6 +1414,7 @@ function openCardModal(currentApp, entry) {
   closeLogModal();
   closeHandInspectorModal();
   closeHandMenuModal();
+  renderCardModalImage(card);
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
   dom.cardModalMeta.textContent = formatCardSlot(card);
@@ -1433,14 +1453,70 @@ function openCardModal(currentApp, entry) {
   syncModalState();
 }
 
+function openSequenceCardModal(card) {
+  closeLogModal();
+  closeHandInspectorModal();
+  closeHandMenuModal();
+  closePinModal();
+  closeRollOffModal();
+  closeCardModal();
+
+  renderCardModalImage(card);
+  dom.cardModalType.textContent = capitalize(card.type);
+  dom.cardModalTitle.textContent = card.name;
+  dom.cardModalMeta.textContent = formatCardSlot(card);
+  dom.cardModalValue.textContent = `${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
+  dom.cardModalReason.textContent = "Played in sequence";
+  dom.cardModalReason.hidden = false;
+  dom.cardModalEffect.textContent = describeCard(card);
+  dom.cardModalAction.hidden = true;
+  dom.cardModalAction.disabled = true;
+  dom.cardModalAction.onclick = null;
+
+  dom.cardModal.hidden = false;
+  animateCardModalExpand();
+  syncModalState();
+}
+
 function closeCardModal() {
   if (!dom.cardModal) {
     return;
   }
 
   dom.cardModal.hidden = true;
+  dom.cardModal.classList.remove("card-modal--expanding");
+  window.clearTimeout(app.ui.cardModalExpandTimer);
+  app.ui.cardModalExpandTimer = null;
   dom.cardModalAction.onclick = null;
   syncModalState();
+}
+
+function renderCardModalImage(card) {
+  if (!dom.cardModalImage) {
+    return;
+  }
+
+  if (card?.image) {
+    dom.cardModalImage.src = card.image;
+    dom.cardModalImage.alt = `${card.name} card art`;
+    dom.cardModalImage.hidden = false;
+    return;
+  }
+
+  dom.cardModalImage.hidden = true;
+  dom.cardModalImage.removeAttribute("src");
+  dom.cardModalImage.alt = "";
+}
+
+function animateCardModalExpand() {
+  dom.cardModal.classList.remove("card-modal--expanding");
+  window.clearTimeout(app.ui.cardModalExpandTimer);
+  void dom.cardModal.offsetWidth;
+  dom.cardModal.classList.add("card-modal--expanding");
+  app.ui.cardModalExpandTimer = window.setTimeout(() => {
+    dom.cardModal.classList.remove("card-modal--expanding");
+    app.ui.cardModalExpandTimer = null;
+  }, 320);
 }
 
 function maybeShowRollOffModal(state) {
