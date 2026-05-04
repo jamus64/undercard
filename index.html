@@ -181,10 +181,27 @@
       </div>
       <div class="hand-menu-modal__actions">
         <button id="hand-menu-stop-early" class="primary-button" type="button">End Turn</button>
-        <button class="secondary-button" type="button">Placeholder Option 1</button>
-        <button class="secondary-button" type="button">Placeholder Option 2</button>
+        <button id="hand-menu-view-deck" class="secondary-button" type="button">See My Deck</button>
+        <button id="hand-menu-view-enemy-hand" class="secondary-button" type="button">See Enemy Hand</button>
         <button class="secondary-button" type="button">Placeholder Option 3</button>
       </div>
+    </div>
+  </div>
+
+  <div id="hand-inspector-modal" class="hand-inspector-modal" hidden>
+    <button class="hand-inspector-modal__backdrop" type="button" aria-label="Close hand inspector"></button>
+    <div class="hand-inspector-modal__panel">
+      <div class="hand-inspector-modal__header">
+        <div>
+          <p id="hand-inspector-eyebrow" class="hand-inspector-modal__eyebrow"></p>
+          <h2 id="hand-inspector-title" class="hand-inspector-modal__title"></h2>
+        </div>
+        <button id="close-hand-inspector-button" class="secondary-button" type="button">Close</button>
+      </div>
+      <div class="hand-inspector-modal__summary">
+        <p id="hand-inspector-summary" class="hand-inspector-modal__summary-copy"></p>
+      </div>
+      <div id="hand-inspector-list" class="hand-inspector-modal__list"></div>
     </div>
   </div>
 

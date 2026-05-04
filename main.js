@@ -33,7 +33,8 @@ const app = {
     pinCountRunning: false,
     lastHandledLogIndex: 0,
     lastShownRollOffId: 0,
-    moveToastTimer: null
+    moveToastTimer: null,
+    handInspectorView: null
   },
   timers: new Set(),
   sync: {
@@ -55,6 +56,7 @@ const dom = {
   closePinButton: document.getElementById("close-pin-button"),
   closeRollOffButton: document.getElementById("close-rolloff-button"),
   closeHandMenuButton: document.getElementById("close-hand-menu-button"),
+  closeHandInspectorButton: document.getElementById("close-hand-inspector-button"),
   cardModal: document.getElementById("card-modal"),
   cardModalBackdrop: document.querySelector("#card-modal .card-modal__backdrop"),
   pinModal: document.getElementById("pin-modal"),
@@ -63,6 +65,12 @@ const dom = {
   rollOffModalBackdrop: document.querySelector("#rolloff-modal .rolloff-modal__backdrop"),
   handMenuModal: document.getElementById("hand-menu-modal"),
   handMenuModalBackdrop: document.querySelector("#hand-menu-modal .hand-menu-modal__backdrop"),
+  handInspectorModal: document.getElementById("hand-inspector-modal"),
+  handInspectorModalBackdrop: document.querySelector("#hand-inspector-modal .hand-inspector-modal__backdrop"),
+  handInspectorEyebrow: document.getElementById("hand-inspector-eyebrow"),
+  handInspectorTitle: document.getElementById("hand-inspector-title"),
+  handInspectorSummary: document.getElementById("hand-inspector-summary"),
+  handInspectorList: document.getElementById("hand-inspector-list"),
   rollOffTitle: document.getElementById("rolloff-title"),
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
@@ -94,6 +102,8 @@ const dom = {
   playerPinSummary: document.getElementById("player-pin-summary"),
   handMenuButton: document.getElementById("hand-menu-button"),
   handMenuStopEarly: document.getElementById("hand-menu-stop-early"),
+  handMenuViewDeck: document.getElementById("hand-menu-view-deck"),
+  handMenuViewEnemyHand: document.getElementById("hand-menu-view-enemy-hand"),
   recentEventsList: document.getElementById("recent-events-list"),
   wrestlerPanels: {
     player: {
@@ -192,6 +202,7 @@ function applySharedSession(session, options = {}) {
   closeCardModal();
   closeLogModal();
   closeHandMenuModal();
+  closeHandInspectorModal();
   closePinModal();
   closeRollOffModal();
   app.ui.lastHandledLogIndex = Array.isArray(session.state.log) ? session.state.log.length : 0;
@@ -234,7 +245,11 @@ function bindEvents() {
   dom.rollOffModalBackdrop?.addEventListener("click", closeRollOffModal);
   dom.closeHandMenuButton?.addEventListener("click", closeHandMenuModal);
   dom.handMenuModalBackdrop?.addEventListener("click", closeHandMenuModal);
+  dom.closeHandInspectorButton?.addEventListener("click", closeHandInspectorModal);
+  dom.handInspectorModalBackdrop?.addEventListener("click", closeHandInspectorModal);
   dom.handMenuButton?.addEventListener("click", openHandMenuModal);
+  dom.handMenuViewDeck?.addEventListener("click", () => openHandInspectorModal("playerDeck"));
+  dom.handMenuViewEnemyHand?.addEventListener("click", () => openHandInspectorModal("enemyHand"));
   window.addEventListener("storage", handleSharedSessionStorage);
   dom.handMenuStopEarly?.addEventListener("click", () => {
     if (!canPlayerStopEarly(app.state)) {
@@ -268,6 +283,11 @@ function bindEvents() {
 
     if (dom.handMenuModal && !dom.handMenuModal.hidden) {
       closeHandMenuModal();
+      return;
+    }
+
+    if (dom.handInspectorModal && !dom.handInspectorModal.hidden) {
+      closeHandInspectorModal();
       return;
     }
 
@@ -405,6 +425,7 @@ function startMatch(currentApp) {
   closeCardModal();
   closeLogModal();
   closeHandMenuModal();
+  closeHandInspectorModal();
   closePinModal();
   closeRollOffModal();
 
@@ -578,6 +599,7 @@ function renderApp(currentApp) {
   renderHand(currentApp);
   renderRecentEvents(currentApp.state);
   renderMatchLog(currentApp.state);
+  renderHandInspector(currentApp.state);
   maybeShowRollOffModal(currentApp.state);
 }
 
@@ -1358,6 +1380,7 @@ function renderMatchLog(state) {
 
 function openLogModal() {
   closeCardModal();
+  closeHandInspectorModal();
   closeHandMenuModal();
   dom.logModal.hidden = false;
   syncModalState();
@@ -1372,6 +1395,8 @@ function openPinModal(state, wrestlerKey) {
   if (!dom.pinModal || !dom.pinModalTitle || !dom.pinModalStats) {
     return;
   }
+
+  closeHandInspectorModal();
 
   const wrestler = state.players[wrestlerKey];
   const pinSummary = Engine.getPinfallSummary(wrestler);
@@ -1397,6 +1422,7 @@ function openCardModal(currentApp, entry) {
   const cardReason = entry.mode.reason || "";
 
   closeLogModal();
+  closeHandInspectorModal();
   closeHandMenuModal();
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
@@ -1452,6 +1478,7 @@ function maybeShowRollOffModal(state) {
     return;
   }
 
+  closeHandInspectorModal();
   app.ui.lastShownRollOffId = rollOff.id;
   resetRollOffVisualState();
   dom.rollOffTitle.textContent = capitalize(rollOff.defenceChoice || "roll-off");
@@ -1494,6 +1521,7 @@ function openHandMenuModal() {
   }
   closeLogModal();
   closeCardModal();
+  closeHandInspectorModal();
   closeRollOffModal();
   dom.handMenuModal.hidden = false;
   syncModalState();
@@ -1507,13 +1535,147 @@ function closeHandMenuModal() {
   syncModalState();
 }
 
+function openHandInspectorModal(view) {
+  if (!dom.handInspectorModal || !app.state) {
+    return;
+  }
+
+  app.ui.handInspectorView = view;
+  closeHandMenuModal();
+  closeLogModal();
+  closeCardModal();
+  closeRollOffModal();
+  renderHandInspector(app.state);
+  dom.handInspectorModal.hidden = false;
+  syncModalState();
+}
+
+function closeHandInspectorModal() {
+  if (!dom.handInspectorModal) {
+    return;
+  }
+
+  dom.handInspectorModal.hidden = true;
+  app.ui.handInspectorView = null;
+  syncModalState();
+}
+
+function renderHandInspector(state) {
+  if (!dom.handInspectorModal || !dom.handInspectorList || !app.ui.handInspectorView) {
+    return;
+  }
+
+  const model = buildHandInspectorModel(state, app.ui.handInspectorView);
+  if (!model) {
+    closeHandInspectorModal();
+    return;
+  }
+
+  dom.handInspectorEyebrow.textContent = model.eyebrow;
+  dom.handInspectorTitle.textContent = model.title;
+  dom.handInspectorSummary.textContent = model.summary;
+  dom.handInspectorList.replaceChildren();
+
+  if (model.entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state hand-inspector-modal__empty";
+    empty.textContent = model.emptyText;
+    dom.handInspectorList.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "hand-inspector-modal__grid";
+
+  model.entries.forEach((entry, index) => {
+    list.appendChild(buildHandInspectorCard(entry, index, model));
+  });
+
+  dom.handInspectorList.appendChild(list);
+}
+
+function buildHandInspectorModel(state, view) {
+  if (!state) {
+    return null;
+  }
+
+  if (view === "playerDeck") {
+    const player = state.players.player;
+    return {
+      eyebrow: "Draw Pile",
+      title: "See My Deck",
+      summary: `Top of draw pile first. ${player.maneuverDeck.length} in deck / ${player.discardPile.length} in discard / ${player.exhaustPile.length} in exhaust.`,
+      emptyText: "Your draw pile is empty.",
+      indexPrefix: "Draw",
+      entries: player.maneuverDeck.map((card) => ({ card }))
+    };
+  }
+
+  if (view === "enemyHand") {
+    const enemy = state.players.enemy;
+    return {
+      eyebrow: "Live Read",
+      title: "Enemy Hand",
+      summary: `${enemy.name} currently has ${enemy.hand.length} ${enemy.hand.length === 1 ? "card" : "cards"} in hand.`,
+      emptyText: "The enemy has no cards in hand.",
+      indexPrefix: "Card",
+      entries: enemy.hand.map((card) => ({ card }))
+    };
+  }
+
+  return null;
+}
+
+function buildHandInspectorCard(entry, index, model) {
+  const card = entry.card;
+  const article = document.createElement("article");
+  article.className = [
+    "hand-inspector-card",
+    `hand-inspector-card--${card.type}`
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const topRow = document.createElement("div");
+  topRow.className = "hand-inspector-card__top";
+
+  const count = document.createElement("span");
+  count.className = "hand-inspector-card__count";
+  count.textContent = `${model.indexPrefix} ${index + 1}`;
+  topRow.appendChild(count);
+
+  const type = document.createElement("span");
+  type.className = `hand-inspector-card__type hand-inspector-card__type--${card.type}`;
+  type.textContent = capitalize(card.type);
+  topRow.appendChild(type);
+  article.appendChild(topRow);
+
+  const title = document.createElement("h3");
+  title.className = "hand-inspector-card__title";
+  title.textContent = card.name;
+  article.appendChild(title);
+
+  const meta = document.createElement("p");
+  meta.className = "hand-inspector-card__meta";
+  meta.textContent = `${formatCardSlot(card)} / ${formatCardPrimaryLabel(card)} ${formatCardPrimaryValue(card)}`;
+  article.appendChild(meta);
+
+  const effect = document.createElement("p");
+  effect.className = "hand-inspector-card__effect";
+  effect.textContent = describeCard(card);
+  article.appendChild(effect);
+
+  return article;
+}
+
 function syncModalState() {
   const anyModalOpen =
     (dom.logModal && !dom.logModal.hidden) ||
     (dom.cardModal && !dom.cardModal.hidden) ||
     (dom.pinModal && !dom.pinModal.hidden) ||
     (dom.rollOffModal && !dom.rollOffModal.hidden) ||
-    (dom.handMenuModal && !dom.handMenuModal.hidden);
+    (dom.handMenuModal && !dom.handMenuModal.hidden) ||
+    (dom.handInspectorModal && !dom.handInspectorModal.hidden);
   document.body.classList.toggle("modal-open", Boolean(anyModalOpen));
 }
 

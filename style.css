@@ -1146,7 +1146,8 @@ button[hidden],
 .log-modal,
 .card-modal,
 .rolloff-modal,
-.hand-menu-modal {
+.hand-menu-modal,
+.hand-inspector-modal {
   position: fixed;
   inset: 0;
   display: grid;
@@ -1203,7 +1204,8 @@ button[hidden],
 .log-modal__backdrop,
 .card-modal__backdrop,
 .rolloff-modal__backdrop,
-.hand-menu-modal__backdrop {
+.hand-menu-modal__backdrop,
+.hand-inspector-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
@@ -1214,7 +1216,8 @@ button[hidden],
 .log-modal__panel,
 .card-modal__panel,
 .rolloff-modal__panel,
-.hand-menu-modal__panel {
+.hand-menu-modal__panel,
+.hand-inspector-modal__panel {
   position: relative;
   z-index: 1;
   align-self: center;
@@ -1227,7 +1230,8 @@ button[hidden],
 
 .log-modal__header,
 .card-modal__header,
-.hand-menu-modal__header {
+.hand-menu-modal__header,
+.hand-inspector-modal__header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1238,7 +1242,8 @@ button[hidden],
 
 .log-modal__header h2,
 .card-modal__title,
-.hand-menu-modal__header h2 {
+.hand-menu-modal__header h2,
+.hand-inspector-modal__title {
   font-family: Impact, "Arial Black", sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1263,6 +1268,148 @@ button[hidden],
 
 .hand-menu-modal__actions .secondary-button {
   font-size: 0.92rem;
+}
+
+.hand-inspector-modal__eyebrow,
+.hand-inspector-modal__summary-copy,
+.hand-inspector-card__meta,
+.hand-inspector-card__effect,
+.hand-inspector-card__count {
+  margin: 0;
+}
+
+.hand-inspector-modal__eyebrow {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.hand-inspector-modal__title {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+}
+
+.hand-inspector-modal__panel {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.hand-inspector-modal__summary {
+  padding: 10px 12px 0;
+}
+
+.hand-inspector-modal__summary-copy {
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.hand-inspector-modal__list {
+  padding: 12px;
+}
+
+.hand-inspector-modal__grid {
+  display: grid;
+  gap: 10px;
+}
+
+.hand-inspector-modal__empty {
+  padding: 10px 0 4px;
+}
+
+.hand-inspector-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid rgba(255, 202, 74, 0.28);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 220, 124, 0.08), rgba(0, 0, 0, 0.12)),
+    linear-gradient(180deg, rgba(52, 34, 27, 0.98) 0%, rgba(21, 13, 16, 0.98) 100%);
+}
+
+.hand-inspector-card--attack,
+.hand-inspector-card--pin {
+  border-color: rgba(255, 202, 74, 0.48);
+}
+
+.hand-inspector-card--taunt {
+  border-color: rgba(90, 193, 255, 0.42);
+}
+
+.hand-inspector-card--dodge {
+  border-color: rgba(90, 174, 255, 0.48);
+}
+
+.hand-inspector-card--reversal {
+  border-color: rgba(255, 103, 157, 0.48);
+}
+
+.hand-inspector-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.hand-inspector-card__count,
+.hand-inspector-card__type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 2px solid rgba(11, 7, 5, 0.65);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hand-inspector-card__count {
+  color: var(--ink-soft);
+  background: rgba(24, 16, 18, 0.94);
+}
+
+.hand-inspector-card__type {
+  color: #1d1106;
+  background: linear-gradient(180deg, #ffe078 0%, #f8c73e 100%);
+}
+
+.hand-inspector-card__type--taunt {
+  color: #081322;
+  background: linear-gradient(180deg, #7ac0ff 0%, #2f7ef5 100%);
+}
+
+.hand-inspector-card__type--dodge {
+  color: #081322;
+  background: linear-gradient(180deg, #9cd5ff 0%, #4e9bf7 100%);
+}
+
+.hand-inspector-card__type--reversal {
+  color: #220a13;
+  background: linear-gradient(180deg, #ff8bb7 0%, #ef3d7c 100%);
+}
+
+.hand-inspector-card__title {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.05;
+  color: var(--paper);
+}
+
+.hand-inspector-card__meta {
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.hand-inspector-card__effect {
+  font-size: 0.82rem;
+  line-height: 1.32;
+  color: var(--ink-soft);
 }
 
 .card-modal__type,
@@ -1521,7 +1668,8 @@ button[hidden],
   .log-modal__panel,
   .card-modal__panel,
   .rolloff-modal__panel,
-  .hand-menu-modal__panel {
+  .hand-menu-modal__panel,
+  .hand-inspector-modal__panel {
     align-self: center;
     justify-self: center;
     width: min(760px, calc(100vw - 48px));
