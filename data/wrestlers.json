@@ -1,11 +1,14 @@
 [
   {
-    "name": "Joey 'Haddock Hands' Briggs"
+    "name": "Joey 'Haddock Hands' Briggs",
+    "category": "Brawler"
   },
   {
-    "name": "Benji 'The Pinchy Fingers' Fellows"
+    "name": "Benji 'The Pinchy Fingers' Fellows",
+    "category": "Technical"
   },
   {
-    "name": "Jamie 'Peter Peter' Wyatt"
+    "name": "Jamie 'Peter Peter' Wyatt",
+    "category": "High-Flyer"
   }
 ]

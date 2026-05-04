@@ -16,6 +16,12 @@
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
   const DEFENSIVE_TYPES = new Set(["dodge", "reversal"]);
+  const RARITY_LIMITS = {
+    common: 4,
+    uncommon: 3,
+    rare: 2,
+    special: 1
+  };
 
   const PHASES = {
     MATCH_START: "match_start",
@@ -1802,17 +1808,28 @@
   }
 
   function doesCardMatchSlot(card, slotNumber) {
-    return card.validSlot === "any" || card.validSlot === slotNumber;
+    if (card.validSlot === "any") {
+      return true;
+    }
+    if (Array.isArray(card.slotOptions) && card.slotOptions.length > 0) {
+      return card.slotOptions.includes(slotNumber);
+    }
+    return card.validSlot === slotNumber;
   }
 
   function normalizeCard(card) {
+    const normalizedSlot = normalizeSlotDefinition(card);
     return {
       id: String(card.id),
       name: String(card.name),
       image: card.image ? String(card.image) : "",
       type: card.type,
       rarity: card.rarity || "common",
-      validSlot: card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null),
+      category: card.category ? String(card.category) : card["// category"] ? String(card["// category"]) : "",
+      effect: card.effect ? String(card.effect) : card["// effect"] ? String(card["// effect"]) : "",
+      csvSlot: normalizedSlot.csvSlot,
+      slotOptions: normalizedSlot.slotOptions,
+      validSlot: normalizedSlot.validSlot,
       damage: Number(card.damage || 0),
       reverseDamage: Number(card.reverseDamage || 0),
       missDamage: Number(card.missDamage || 0),
@@ -1826,6 +1843,63 @@
       defenceModifiers: cloneDefenceModifiers(card.defenceModifiers),
       flags: { ...(card.flags || {}) }
     };
+  }
+
+  function normalizeSlotDefinition(card) {
+    const rawCsvSlot = card.csvSlot ?? card["// csvSlot"];
+    const parsedCsvSlot = parseCsvSlot(rawCsvSlot);
+
+    if (rawCsvSlot !== undefined && rawCsvSlot !== null) {
+      if (parsedCsvSlot === "any") {
+        return { csvSlot: String(rawCsvSlot), slotOptions: [], validSlot: "any" };
+      }
+      if (parsedCsvSlot.length > 0) {
+        return {
+          csvSlot: String(rawCsvSlot),
+          slotOptions: parsedCsvSlot,
+          validSlot: parsedCsvSlot.length === 1 ? parsedCsvSlot[0] : "multi"
+        };
+      }
+    }
+
+    const fallback = card.validSlot ?? card.slot ?? (card.type === "pin" ? "any" : null);
+    if (fallback === "any") {
+      return { csvSlot: "any", slotOptions: [], validSlot: "any" };
+    }
+    if (fallback === null || fallback === undefined) {
+      return { csvSlot: null, slotOptions: [], validSlot: null };
+    }
+
+    const numericFallback = Number(fallback);
+    if (Number.isFinite(numericFallback)) {
+      return {
+        csvSlot: String(numericFallback),
+        slotOptions: [numericFallback],
+        validSlot: numericFallback
+      };
+    }
+
+    return { csvSlot: null, slotOptions: [], validSlot: null };
+  }
+
+  function parseCsvSlot(value) {
+    const text = String(value || "").trim().toLowerCase();
+    if (!text) {
+      return [];
+    }
+    if (text === "any") {
+      return "any";
+    }
+
+    const parts = text.split("/").map((part) => part.trim()).filter(Boolean);
+    const slots = [];
+    for (const part of parts) {
+      const slot = Number(part);
+      if (Number.isFinite(slot)) {
+        slots.push(slot);
+      }
+    }
+    return [...new Set(slots)];
   }
 
   function cloneCard(card) {
@@ -1898,19 +1972,109 @@
 
   function buildDeckForWrestler(wrestler, cardLookup, deckRecipe) {
     const deck = [];
+    const cardList = Object.values(cardLookup || {});
+    const wrestlerCategory = String(wrestler?.category || "").toLowerCase();
 
     deckRecipe.forEach((entry) => {
-      const definition = cardLookup[entry.cardId];
-      if (!definition) {
-        throw new Error(`Unknown card id "${entry.cardId}" in deck recipe.`);
+      if (entry.cardId) {
+        const definition = cardLookup[entry.cardId];
+        if (!definition) {
+          throw new Error(`Unknown card id "${entry.cardId}" in deck recipe.`);
+        }
+
+        for (let index = 0; index < entry.count; index += 1) {
+          deck.push(normalizeCard(definition));
+        }
+        return;
       }
 
-      for (let index = 0; index < entry.count; index += 1) {
-        deck.push(normalizeCard(definition));
+      if (entry.type) {
+        const generated = buildTypeBasedCardsForWrestler(
+          wrestler,
+          entry.type,
+          Number(entry.count || 0),
+          cardList,
+          wrestlerCategory
+        );
+        generated.forEach((card) => deck.push(card));
+        return;
       }
+
+      throw new Error("Deck recipe entries must include cardId or type.");
     });
 
     return deck;
+  }
+
+  function buildTypeBasedCardsForWrestler(wrestler, type, count, cardList, wrestlerCategory) {
+    if (count <= 0) {
+      return [];
+    }
+
+    let candidates = cardList.filter((card) => card.type === type);
+    let preferred = candidates;
+    let fallback = [];
+    if (type === "attack" && wrestlerCategory) {
+      const categoryMatches = candidates.filter((card) => String(card.category || card["// category"] || "").toLowerCase() === wrestlerCategory);
+      if (categoryMatches.length > 0) {
+        preferred = categoryMatches;
+        fallback = candidates.filter((card) => !categoryMatches.some((match) => match.id === card.id));
+      }
+    }
+
+    if (candidates.length === 0) {
+      throw new Error(`No cards found for recipe type "${type}".`);
+    }
+
+    const ordered = [
+      ...sortCardsForWrestler(preferred, `${wrestler?.name || "wrestler"}:${type}:preferred`),
+      ...sortCardsForWrestler(fallback, `${wrestler?.name || "wrestler"}:${type}:fallback`)
+    ];
+    const perCardCounts = {};
+    const picked = [];
+    let cursor = 0;
+    let safety = 0;
+
+    while (picked.length < count) {
+      const definition = ordered[cursor % ordered.length];
+      cursor += 1;
+      safety += 1;
+      if (safety > 3000) {
+        throw new Error(`Unable to satisfy ${type} deck recipe for ${wrestler?.name || "wrestler"}.`);
+      }
+
+      const limit = RARITY_LIMITS[definition.rarity] || 1;
+      const seen = perCardCounts[definition.id] || 0;
+      if (seen >= limit) {
+        continue;
+      }
+
+      perCardCounts[definition.id] = seen + 1;
+      picked.push(normalizeCard(definition));
+    }
+
+    return picked;
+  }
+
+  function sortCardsForWrestler(cards, seedText) {
+    return [...cards].sort((left, right) => {
+      const leftScore = hashString(`${seedText}:${left.id}`);
+      const rightScore = hashString(`${seedText}:${right.id}`);
+      if (leftScore !== rightScore) {
+        return leftScore - rightScore;
+      }
+      return String(left.id).localeCompare(String(right.id));
+    });
+  }
+
+  function hashString(value) {
+    let hash = 2166136261;
+    const text = String(value || "");
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
   }
 
   function getCurrentAttacker(state) {

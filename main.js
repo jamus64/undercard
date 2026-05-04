@@ -345,19 +345,36 @@ function validateGameData() {
   }
 
   gameData.deckRecipe.forEach((entry) => {
-    const card = gameData.cardLookup[entry.cardId];
-    if (!card) {
-      throw new Error(`Deck recipe references unknown card id "${entry.cardId}".`);
+    if (entry.cardId) {
+      const card = gameData.cardLookup[entry.cardId];
+      if (!card) {
+        throw new Error(`Deck recipe references unknown card id "${entry.cardId}".`);
+      }
+      if (entry.count > RARITY_LIMITS[card.rarity]) {
+        throw new Error(`Deck recipe exceeds ${card.name}'s copy limit.`);
+      }
+      return;
     }
 
-    if (entry.count > RARITY_LIMITS[card.rarity]) {
-      throw new Error(`Deck recipe exceeds ${card.name}'s copy limit.`);
+    if (entry.type) {
+      if (!Engine.OFFENSIVE_TYPES.has(entry.type) || entry.type === "pin") {
+        throw new Error(`Deck recipe type "${entry.type}" is not supported.`);
+      }
+      if (!Number.isInteger(entry.count) || entry.count < 0) {
+        throw new Error(`Deck recipe type "${entry.type}" has invalid count.`);
+      }
+      return;
     }
+
+    throw new Error("Deck recipe entries must include cardId or type.");
   });
 
   gameData.wrestlers.forEach((wrestler) => {
     if (!wrestler.name) {
       throw new Error("Each wrestler needs a name.");
+    }
+    if (!wrestler.category) {
+      throw new Error(`Wrestler "${wrestler.name}" needs a category.`);
     }
 
     const deck = Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, gameData.deckRecipe);
@@ -468,7 +485,8 @@ function pickEnemyTemplate(roster, playerTemplate, enemyTemplateName) {
 
 function cloneWrestler(wrestler) {
   return {
-    name: wrestler.name
+    name: wrestler.name,
+    category: wrestler.category
   };
 }
 
@@ -1697,7 +1715,14 @@ function formatCardSlot(card) {
     return card.type === "pin" ? "Pin / Any slot" : "Any slot";
   }
 
-  if (card.validSlot === null || card.validSlot === undefined) {
+  if (Array.isArray(card.slotOptions) && card.slotOptions.length > 0) {
+    if (card.slotOptions.length === 1) {
+      return `Slot ${card.slotOptions[0]}`;
+    }
+    return `Slots ${card.slotOptions.join("/")}`;
+  }
+
+  if (card.validSlot === null || card.validSlot === undefined || card.validSlot === "multi") {
     return "Defense";
   }
 
@@ -1738,6 +1763,11 @@ function formatCardPrimaryLabel(card) {
 
 function describeCard(card) {
   const parts = [];
+  const authoredEffect = String(card.effect || "").trim();
+
+  if (authoredEffect) {
+    parts.push(authoredEffect);
+  }
 
   if (card.type === "attack") {
     parts.push(`Deals ${card.damage} damage.`);
@@ -1750,7 +1780,7 @@ function describeCard(card) {
   }
 
   if (card.type === "taunt") {
-    parts.push(`Undefendable taunt for slot ${card.validSlot}.`);
+    parts.push(`Undefendable taunt for ${formatCardSlot(card).toLowerCase()}.`);
   }
 
   if (card.type === "pin") {

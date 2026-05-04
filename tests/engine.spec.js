@@ -434,6 +434,33 @@ test("off-slot cards do not count toward combo", () => {
   expect(failCount(state, "enemy")).toBe(failStart);
 });
 
+test("cards with csvSlot can be played in any listed slot", () => {
+  const state = makeMatch({
+    playerDeck: deckFromOpeningHand([
+      Engine.normalizeCard({
+        id: "multi_slot_attack",
+        name: "multi_slot_attack",
+        type: "attack",
+        csvSlot: "1/3",
+        damage: 5,
+        afterUse: "discard",
+        onSlotEffect: [],
+        offSlotEffect: [],
+        onHitEffects: [],
+        onPinEffects: []
+      }),
+      attack("filler_attack", 2, 1)
+    ]),
+    enemyDeck: deckFromOpeningHand([attack("enemy_attack", 1, 5)])
+  });
+
+  state.turn.nextSlot = 3;
+  Engine.playOffensiveCard(state, 0, "player");
+
+  expect(state.turn.slots[2].card?.id).toBe("multi_slot_attack");
+  expect(state.turn.slots[2].onSlot).toBe(true);
+});
+
 test("successful defence prevents combo rewards", () => {
   const state = makeMatch({
     random: [0.1, 0.75],

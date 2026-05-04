@@ -1,15 +1,6 @@
 [
-  { "cardId": "chop", "count": 4 },
-  { "cardId": "cheap_shot", "count": 3 },
-  { "cardId": "dropkick", "count": 3 },
-  { "cardId": "suplex", "count": 3 },
-  { "cardId": "clothesline", "count": 4 },
-  { "cardId": "elbow_drop", "count": 3 },
-  { "cardId": "shush", "count": 3 },
-  { "cardId": "yell_at_crowd", "count": 3 },
-  { "cardId": "body_blow", "count": 4 },
-  { "cardId": "roar", "count": 3 },
-  { "cardId": "air_guitar", "count": 3 },
+  { "type": "attack", "count": 24 },
+  { "type": "taunt", "count": 12 },
   { "cardId": "pin", "count": 4 },
   { "cardId": "dodge", "count": 4 },
   { "cardId": "reversal", "count": 4 }
