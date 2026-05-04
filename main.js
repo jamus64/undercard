@@ -1017,13 +1017,13 @@ function renderWrestlerPanel(state, wrestlerKey, panelDom) {
     <span class="stat-pill">DMG ${wrestler.damage}</span>
     <span class="stat-pill">HAND ${wrestler.hand.length}</span>
     <span class="stat-pill">DECK ${wrestler.maneuverDeck.length}</span>
-  `;
-  panelDom.pin.innerHTML = `
     <button type="button" class="stat-pill stat-pill--pin" aria-label="Open pin breakdown">
       PIN ${formatPercent(pinChance)}
     </button>
   `;
-  panelDom.pin.querySelector(".stat-pill--pin")?.addEventListener("click", () => {
+  panelDom.pin.innerHTML = "";
+  panelDom.pin.hidden = true;
+  panelDom.stats.querySelector(".stat-pill--pin")?.addEventListener("click", () => {
     openPinModal(state, wrestlerKey);
   });
   const statusLine = buildWrestlerStatusLine(state, wrestlerKey);
