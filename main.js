@@ -1788,6 +1788,12 @@ function describeCard(card) {
 
   if (card.type === "attack") {
     parts.push(`Deals ${card.damage} damage.`);
+    if (Number(card.reverseDamage || 0) > 0) {
+      parts.push(`If reversed, attacker takes ${card.reverseDamage} damage.`);
+    }
+    if (Number(card.missDamage || 0) > 0) {
+      parts.push(`If dodged, attacker takes ${card.missDamage} damage.`);
+    }
   }
 
   if (card.type === "taunt") {
