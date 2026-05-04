@@ -5,7 +5,8 @@ if (!Engine) {
   throw new Error("UnderCardEngine failed to load.");
 }
 
-const DEFAULT_PLAYER_WRESTLER = "Jamie 'The Best Wrestler & Fit' Wyatt";
+/** Must match a `name` in data/wrestlers.json (was wrong string before, so lookup always failed). */
+const DEFAULT_PLAYER_WRESTLER = "Benji 'The Pinchy Fingers' Fellows";
 const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 2 };
 const AI_STEP_DELAY = 1000;
 
@@ -457,7 +458,7 @@ function startMatch(currentApp) {
 
 function pickMatchupFromSettings(settings) {
   const roster = gameData.wrestlers;
-  const playerTemplate = pickRandomWrestlerTemplate(roster);
+  const playerTemplate = pickPlayerTemplateFromSettings(roster, settings.playerTemplateName);
   const enemyTemplate = pickEnemyTemplate(roster, playerTemplate, settings.enemyTemplateName);
 
   return {
@@ -466,9 +467,16 @@ function pickMatchupFromSettings(settings) {
   };
 }
 
-function pickRandomWrestlerTemplate(roster) {
+function pickPlayerTemplateFromSettings(roster, playerTemplateName) {
   if (!Array.isArray(roster) || roster.length === 0) {
     throw new Error("No wrestlers are available for matchup selection.");
+  }
+  const trimmed = typeof playerTemplateName === "string" ? playerTemplateName.trim() : "";
+  if (trimmed) {
+    const found = roster.find((wrestler) => wrestler.name === trimmed);
+    if (found) {
+      return found;
+    }
   }
   return roster[Math.floor(Math.random() * roster.length)];
 }
@@ -1819,27 +1827,11 @@ function describeCard(card) {
   }
 
   if (card.type === "taunt") {
-    parts.push(`Undefendable taunt for ${formatCardSlot(card).toLowerCase()}.`);
+    parts.push(`Taunt for ${formatCardSlot(card).toLowerCase()} (can be defended with dodge/reversal).`);
   }
 
   if (card.type === "pin") {
     parts.push("Slot-agnostic. Ends the offensive sequence immediately.");
-  }
-
-  if (card.onSlotEffect?.length) {
-    parts.push(`On-slot: ${formatEffects(card.onSlotEffect)}.`);
-  }
-
-  if (card.offSlotEffect?.length || card.type === "taunt") {
-    parts.push(`Off-slot: ${card.offSlotEffect?.length ? formatEffects(card.offSlotEffect) : "No effect"}.`);
-  }
-
-  if (card.onHitEffects?.length) {
-    parts.push(`On hit: ${formatEffects(card.onHitEffects)}.`);
-  }
-
-  if (card.onPinEffects?.length) {
-    parts.push(`On pin: ${formatEffects(card.onPinEffects)}.`);
   }
 
   if (card.afterUse === "exhaust") {
@@ -1847,23 +1839,6 @@ function describeCard(card) {
   }
 
   return parts.join(" ");
-}
-
-function formatEffects(effects) {
-  return effects
-    .map((effect) => {
-      if (effect.type === "add_pinfall" || effect.type === "pinfall") {
-        return `add ${effect.amount || 1} ${effect.card} to ${effect.target === "self" ? "your" : "their"} pinfall deck`;
-      }
-
-      if (effect.type === "modify_damage") {
-        const amount = Number(effect.amount || 0);
-        return `${amount >= 0 ? "+" : ""}${amount} damage`;
-      }
-
-      return effect.type;
-    })
-    .join(", ");
 }
 
 function canPlayerStopEarly(state) {

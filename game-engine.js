@@ -10,8 +10,8 @@
   const MAX_SEQUENCE_SLOTS = 3;
   const DAMAGE_PER_FAIL = 10;
   const PIN_DRAW_COUNT = 3;
-  const STARTING_PIN_FAILS = 7;
-  const STARTING_PIN_KICKOUTS = 5;
+  const STARTING_PIN_FAILS = 3;
+  const STARTING_PIN_KICKOUTS = 7;
   const COIN_SIDES = ["Heads", "Tails"];
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
@@ -22,6 +22,250 @@
     rare: 2,
     special: 2
   };
+
+  const CARD_EFFECT_TIMING = Object.freeze({
+    BEFORE_DEFENCE_ROLL: "before_defence_roll",
+    BEFORE_DAMAGE_ROLL: "before_damage_roll",
+    ON_ATTACK_HIT: "on_attack_hit",
+    ON_ATTACK_DEFENDED: "on_attack_defended",
+    ON_TAUNT_RESOLVE: "on_taunt_resolve"
+  });
+
+  /**
+   * Default effect rules per card id. Card JSON may override by supplying non-empty effectOps array.
+   * Replaces deprecated onSlotEffect / offSlotEffect JSON fields.
+   */
+  const CARD_EFFECT_OPS_BY_ID = {
+    clothesline: [
+      {
+        when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
+        ifPlayingSlotIs: [1],
+        ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
+      }
+    ],
+    spear: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
+    chokeslam: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
+    shooting_star_press: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
+    sweet_chin_music: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
+    headbutt: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "self_damage", amount: 3 }] }],
+    frog_splash: [
+      {
+        when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
+        ifPreviousPlayedWasTaunt: true,
+        ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
+      }
+    ],
+    wild_swing: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ops: [{ type: "set_player_stunned", target: "attacker", value: true }]
+      }
+    ],
+    eye_rake: [
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "set_player_stunned", target: "defender", value: true }] },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    chair_shot: [
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 2 }]
+      }
+    ],
+    cheap_shot: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }]
+      },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }] }]
+      }
+    ],
+    ref_distraction: [
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "grant_heel_negative_ignore_next", attackerKey: true }] },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    low_blow: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [
+          { type: "set_player_stunned", target: "defender", value: true },
+          { type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }
+        ]
+      },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        skipFirstIfRefHeelBypass: true,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 2 }]
+      }
+    ],
+    _450_splash: [
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }] },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
+        ifDefenseChoiceIs: ["dodge"],
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 2 }] }]
+      }
+    ],
+    german_suplex: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    suplex: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    bear_hug: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    powerbomb: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }]
+      }
+    ],
+    jab: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_next_attack_damage_bonus", attackerKey: true, amount: 1 }]
+      }
+    ],
+    irish_whip: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_next_attack_damage_bonus", attackerKey: true, amount: 2 }]
+      }
+    ],
+    dropkick: [
+      {
+        when: CARD_EFFECT_TIMING.BEFORE_DAMAGE_ROLL,
+        ifPlayingSlotIs: [3],
+        ops: [{ type: "temp_attack_damage_bonus", amount: 2 }]
+      }
+    ],
+    trip: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }]
+      }
+    ],
+    armbar: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+      }
+    ],
+    figure_four: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 3 }]
+      }
+    ],
+    sharpshooter: [
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [
+          { type: "set_player_stunned", target: "defender", value: true },
+          { type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }
+        ]
+      }
+    ],
+    sleeper_hold: [
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "set_player_stunned", target: "defender", value: true }] }
+    ],
+    gun_show: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [
+          {
+            type: "dual_d20_winner_pick",
+            attackerWins: [{ type: "add_next_attack_damage_bonus", attackerKey: true, amount: 1 }],
+            defenderWins: [{ type: "draw_cards", targets: [{ key: "defenderKey", count: 1 }] }]
+          }
+        ]
+      }
+    ],
+    roar: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "add_next_attack_damage_bonus", attackerKey: true, amount: 2 }]
+      }
+    ],
+    hulk_up: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "grant_slot_bonus_line", slots: [2, 3], damage: 2, reverseDamage: 2, missDamage: 2 }]
+      }
+    ],
+    get_hyped: [{ when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE, ops: [{ type: "set_player_stunned", target: "attacker", value: false }] }],
+    fwahhh: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }, { key: "defenderKey", count: 1 }] }]
+      }
+    ],
+    gyrate_hips: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "add_pinfall_scaling_slot", pinCard: "Kickout" }]
+      }
+    ],
+    strut: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }]
+      }
+    ],
+    yell_at_crowd: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }, { key: "defenderKey", count: 1 }] }]
+      }
+    ],
+    shush: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [{ type: "add_next_attack_damage_bonus", attackerKey: true, amount: 1 }]
+      }
+    ],
+    air_guitar: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [
+          { type: "draw_cards", targets: [{ key: "attackerKey", count: 1 }] },
+          { type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }] }]
+      }
+    ],
+    complain_to_ref: [
+      {
+        when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
+        ops: [
+          {
+            type: "dual_d20_winner_pick",
+            attackerWins: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }],
+            defenderWins: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 2 }]
+          }
+        ]
+      }
+    ]
+  };
+
+  CARD_EFFECT_OPS_BY_ID["450_splash"] = CARD_EFFECT_OPS_BY_ID._450_splash;
+  delete CARD_EFFECT_OPS_BY_ID._450_splash;
 
   const PHASES = {
     MATCH_START: "match_start",
@@ -77,7 +321,8 @@
       initiative: {
         winnerKey: null,
         loserKey: null,
-        coinResult: null
+        coinResult: null,
+        showdown: null
       },
       turn: null,
       resolution: null,
@@ -107,10 +352,14 @@
     const initiativeLoser = getOpponentKey(initiativeWinner);
     state.initiative.winnerKey = initiativeWinner;
     state.initiative.loserKey = initiativeLoser;
-    addLog(
-      state,
-      `${getPlayer(state, initiativeWinner).name} wins the coin flip and takes initiative.`
-    );
+    const sd = state.initiative.showdown;
+    if (sd) {
+      addLog(
+        state,
+        `Initiative showdown: ${getPlayer(state, "player").name} rolls ${sd.playerRoll}, ${getPlayer(state, "enemy").name} rolls ${sd.enemyRoll}.`
+      );
+    }
+    addLog(state, `${getPlayer(state, initiativeWinner).name} takes the first turn (attack).`);
 
     transitionTo(state, PHASES.INITIAL_DRAW);
     const playerOpeningDraw = drawToHand(state, "player", state.rules.handSize);
@@ -146,7 +395,8 @@
       exhaustPile,
       pinfallDeck,
       damage: Number(config?.damage || 0),
-      failThresholdsReached: Math.floor(Number(config?.damage || 0) / rules.damagePerFail)
+      failThresholdsReached: Math.floor(Number(config?.damage || 0) / rules.damagePerFail),
+      stunned: Boolean(config?.stunned)
     };
   }
 
@@ -155,9 +405,15 @@
   }
 
   function resolveInitiativeWinner(state) {
-    const result = flipCoins(state, 1)[0];
-    state.initiative.coinResult = result;
-    return result === "Heads" ? "player" : "enemy";
+    let playerRoll = rollD20(state);
+    let enemyRoll = rollD20(state);
+    while (playerRoll === enemyRoll) {
+      playerRoll = rollD20(state);
+      enemyRoll = rollD20(state);
+    }
+    state.initiative.coinResult = null;
+    state.initiative.showdown = { playerRoll, enemyRoll };
+    return playerRoll > enemyRoll ? "player" : "enemy";
   }
 
   function startTurn(state, attackerKey, turnNumber) {
@@ -215,6 +471,12 @@
       endReason: "",
       playedPin: false,
       comboAchieved: false,
+      immediatePinQueued: false,
+      effectBuff: {
+        nextAttackDamageBonus: 0,
+        ignoreNextHeelDefendedPenalty: false,
+        slotLineBonus: null
+      },
       slots: Array.from({ length: rules.maxSequenceSlots }, (_, index) => {
         return createTurnSlot(index + 1);
       })
@@ -250,7 +512,14 @@
       initiative: {
         winnerKey: state.initiative?.winnerKey || null,
         loserKey: state.initiative?.loserKey || null,
-        coinResult: state.initiative?.coinResult || null
+        coinResult: state.initiative?.coinResult || null,
+        showdown:
+          state.initiative?.showdown && typeof state.initiative.showdown.playerRoll === "number"
+            ? {
+                playerRoll: Number(state.initiative.showdown.playerRoll),
+                enemyRoll: Number(state.initiative.showdown.enemyRoll)
+              }
+            : null
       },
       turn: serializeTurnState(state.turn),
       resolution: serializeResolutionState(state.resolution),
@@ -291,7 +560,8 @@
       exhaustPile: cloneCardList(player.exhaustPile),
       pinfallDeck: clonePinfallDeck(player.pinfallDeck, buildRules()),
       damage: Number(player.damage || 0),
-      failThresholdsReached: Number(player.failThresholdsReached || 0)
+      failThresholdsReached: Number(player.failThresholdsReached || 0),
+      stunned: Boolean(player.stunned)
     };
   }
 
@@ -310,6 +580,27 @@
       endReason: turn.endReason || "",
       playedPin: Boolean(turn.playedPin),
       comboAchieved: Boolean(turn.comboAchieved),
+      immediatePinQueued: Boolean(turn.immediatePinQueued),
+      effectBuff: turn.effectBuff
+        ? {
+            nextAttackDamageBonus: Number(turn.effectBuff.nextAttackDamageBonus || 0),
+            ignoreNextHeelDefendedPenalty: Boolean(turn.effectBuff.ignoreNextHeelDefendedPenalty),
+            slotLineBonus: turn.effectBuff.slotLineBonus
+              ? {
+                  slots: Array.isArray(turn.effectBuff.slotLineBonus.slots)
+                    ? turn.effectBuff.slotLineBonus.slots.map((n) => Number(n))
+                    : [],
+                  damage: Number(turn.effectBuff.slotLineBonus.damage || 0),
+                  reverseDamage: Number(turn.effectBuff.slotLineBonus.reverseDamage || 0),
+                  missDamage: Number(turn.effectBuff.slotLineBonus.missDamage || 0)
+                }
+              : null
+          }
+        : {
+            nextAttackDamageBonus: 0,
+            ignoreNextHeelDefendedPenalty: false,
+            slotLineBonus: null
+          },
       slots: Array.isArray(turn.slots) ? turn.slots.map(serializeTurnSlot) : []
     };
   }
@@ -429,7 +720,16 @@
       initiative: {
         winnerKey: snapshot.initiative?.winnerKey || null,
         loserKey: snapshot.initiative?.loserKey || null,
-        coinResult: snapshot.initiative?.coinResult || null
+        coinResult: snapshot.initiative?.coinResult || null,
+        showdown:
+          snapshot.initiative?.showdown &&
+          typeof snapshot.initiative.showdown.playerRoll === "number" &&
+          typeof snapshot.initiative.showdown.enemyRoll === "number"
+            ? {
+                playerRoll: Number(snapshot.initiative.showdown.playerRoll),
+                enemyRoll: Number(snapshot.initiative.showdown.enemyRoll)
+              }
+            : null
       },
       turn: hydrateTurnState(snapshot.turn, rules),
       resolution: hydrateResolutionState(snapshot.resolution),
@@ -478,6 +778,7 @@
       snapshot && Number.isFinite(Number(snapshot.failThresholdsReached))
         ? Number(snapshot.failThresholdsReached)
         : Math.floor(player.damage / rules.damagePerFail);
+    player.stunned = Boolean(snapshot?.stunned);
     return player;
   }
 
@@ -496,6 +797,25 @@
       endReason: turn.endReason || "",
       playedPin: Boolean(turn.playedPin),
       comboAchieved: Boolean(turn.comboAchieved),
+      immediatePinQueued: Boolean(turn.immediatePinQueued),
+      effectBuff: turn.effectBuff
+        ? {
+            nextAttackDamageBonus: Number(turn.effectBuff.nextAttackDamageBonus || 0),
+            ignoreNextHeelDefendedPenalty: Boolean(turn.effectBuff.ignoreNextHeelDefendedPenalty),
+            slotLineBonus: turn.effectBuff.slotLineBonus
+              ? {
+                  slots: [...turn.effectBuff.slotLineBonus.slots],
+                  damage: Number(turn.effectBuff.slotLineBonus.damage || 0),
+                  reverseDamage: Number(turn.effectBuff.slotLineBonus.reverseDamage || 0),
+                  missDamage: Number(turn.effectBuff.slotLineBonus.missDamage || 0)
+                }
+              : null
+          }
+        : {
+            nextAttackDamageBonus: 0,
+            ignoreNextHeelDefendedPenalty: false,
+            slotLineBonus: null
+          },
       slots: Array.isArray(turn.slots) && turn.slots.length > 0
         ? turn.slots.map((slot) => {
             return {
@@ -836,7 +1156,7 @@
       actorKey: state.resolution.defenderKey,
       choice: defenceCard.type,
       card: defenceCard,
-      coinMode: getDefenceCoinMode(state.resolution),
+      coinMode: getDefenceCoinMode(state, state.resolution),
       call: null,
       flips: [],
       success: null
@@ -948,7 +1268,7 @@
 
     if (defence.success) {
       const attackCard = state.resolution.card;
-      const counterDamage = defence.choice === "dodge" ? Number(attackCard.missDamage || 0) : Number(attackCard.reverseDamage || 0);
+      const counterDamage = getCounterDamageForDefence(state, attackCard, defence.choice, state.resolution.slot);
       if (counterDamage > 0) {
         const damageResult = applyDamage(state, state.resolution.attackerKey, counterDamage);
         logDamageThresholds(state, state.resolution.attackerKey, damageResult);
@@ -958,6 +1278,8 @@
         state,
         `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately. Counter-damage to ${attacker.name}: ${counterDamage}.`
       );
+
+      applyEffectRulesForTiming(state, CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED, state.resolution);
 
       finalizeAttackCard(state, `Defended by ${capitalize(defence.choice)}`);
       finishTurn(state, "successful_defence");
@@ -975,7 +1297,7 @@
     const resolution = state.resolution;
     const attacker = getPlayer(state, resolution.attackerKey);
     const defender = getPlayer(state, resolution.defenderKey);
-    const damage = computeAttackDamage(resolution.card, resolution.onSlot);
+    const damage = computeAttackDamage(state, resolution);
 
     if (damage > 0) {
       const damageResult = applyDamage(state, resolution.defenderKey, damage);
@@ -991,15 +1313,13 @@
       );
     }
 
-    applyEffects(
-      state,
-      extractAfterDamageEffects(resolution.card, resolution.onSlot, "attack"),
-      resolution.attackerKey,
-      resolution.defenderKey,
-      resolution.card.name
-    );
+    applyEffectRulesForTiming(state, CARD_EFFECT_TIMING.ON_ATTACK_HIT, resolution);
 
     finalizeAttackCard(state, "Landed");
+    if (state.turn.immediatePinQueued) {
+      beginImmediatePinFromAttack(state);
+      return;
+    }
     advanceAfterResolvedOffense(state);
   }
 
@@ -1042,13 +1362,12 @@
     const resolution = state.resolution;
     const attacker = getPlayer(state, resolution.attackerKey);
     const defender = getPlayer(state, resolution.defenderKey);
-    const effects = resolution.onSlot ? resolution.card.onSlotEffect : resolution.card.offSlotEffect;
 
     addLog(
       state,
       `${attacker.name} uses ${resolution.card.name}${formatSlotStatus(resolution.onSlot)}. ${resolution.onSlot ? "On-slot effect." : "Reduced off-slot effect."}`
     );
-    applyEffects(state, effects, resolution.attackerKey, resolution.defenderKey, resolution.card.name);
+    applyEffectRulesForTiming(state, CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE, resolution);
     finalizeTauntCard(state, resolution.onSlot ? "Taunt resolved" : "Taunt resolved off-slot", Boolean(resolution.onSlot));
     state.status = `${attacker.name} resolves ${resolution.card.name}.`;
     state.outcome = `${defender.name} takes the taunt effect.`;
@@ -1118,13 +1437,6 @@
 
   function landPin(state) {
     const resolution = state.resolution;
-    applyEffects(
-      state,
-      resolution.card.onPinEffects,
-      resolution.attackerKey,
-      resolution.defenderKey,
-      resolution.card.name
-    );
 
     const destination = moveCardAfterUse(state, resolution.cardOwnerKey, resolution.card);
     finalizePinCard(state, `${getPlayer(state, resolution.defenderKey).name} is pinned`, destination);
@@ -1226,6 +1538,7 @@
 
     state.turn.endedEarly = reason !== "three_slots";
     state.turn.endReason = reason;
+    const finishedAttackerKey = state.turn.attackerKey;
     state.pendingTurnStart = {
       attackerKey: state.turn.defenderKey,
       number: state.turn.number + 1
@@ -1234,6 +1547,12 @@
     transitionTo(state, PHASES.TURN_END);
     state.status = buildTurnEndMessage(state, reason);
     addLog(state, state.status);
+
+    const finishedAttacker = getPlayer(state, finishedAttackerKey);
+    if (finishedAttacker.stunned && reason !== "successful_defence") {
+      setPlayerStunned(state, finishedAttackerKey, false, "End of offensive turn");
+    }
+
     return state;
   }
 
@@ -1320,19 +1639,6 @@
     }
   }
 
-  function applyEffects(state, effects, ownerKey, opponentKey, sourceName) {
-    (effects || []).forEach((effect) => {
-      if (!effect || effect.type === "modify_damage") {
-        return;
-      }
-
-      if (effect.type === "add_pinfall" || effect.type === "pinfall") {
-        const targetKey = effect.target === "self" ? ownerKey : opponentKey;
-        addPinfallCards(state, targetKey, effect.card, effect.amount || 1, sourceName);
-      }
-    });
-  }
-
   function addPinfallCards(state, playerKey, cardType, amount, sourceName) {
     const player = getPlayer(state, playerKey);
 
@@ -1398,54 +1704,70 @@
     return slotRecord;
   }
 
-  function computeAttackDamage(card, onSlot) {
+  function computeAttackDamage(state, resolution) {
+    const card = resolution.card;
+    const onSlot = resolution.onSlot;
     if (onSlot && typeof card.onSlotDamage === "number") {
-      return Math.max(0, card.onSlotDamage);
+      return Math.max(
+        0,
+        Number(card.onSlotDamage) + getPreDamageBonuses(state, card, resolution)
+      );
     }
 
     if (!onSlot && typeof card.offSlotDamage === "number") {
-      return Math.max(0, card.offSlotDamage);
+      return Math.max(
+        0,
+        Number(card.offSlotDamage) + getPreDamageBonuses(state, card, resolution)
+      );
     }
 
     let damage = Number(card.damage || 0);
-    const slotEffects = onSlot ? card.onSlotEffect : card.offSlotEffect;
-
-    (slotEffects || []).forEach((effect) => {
-      if (effect?.type === "modify_damage") {
-        damage += Number(effect.amount || 0);
-      }
-    });
-
+    damage += getPreDamageBonuses(state, card, resolution);
     return Math.max(0, damage);
   }
 
-  function extractAfterDamageEffects(card, onSlot, kind) {
-    const slotEffects = (onSlot ? card.onSlotEffect : card.offSlotEffect).filter((effect) => {
-      return effect?.type !== "modify_damage";
-    });
-
-    if (kind === "attack") {
-      return slotEffects.concat(card.onHitEffects || []);
+  /**
+   * Per rules.txt: Stun applies Disadvantage to the stunned wrestler's attacks and defenses.
+   * Defence rolls always use defender coinMode ("advantage" = defender rolls 2d20, keeps higher).
+   * Stunned defender → worse dice for defender. Stunned attacker → better dice for defender.
+   */
+  function applyStunToDefenceCoinMode(mode, attackerStunned, defenderStunned) {
+    let result = mode;
+    if (attackerStunned) {
+      if (result === "disadvantage") {
+        result = "normal";
+      } else if (result === "normal") {
+        result = "advantage";
+      }
     }
-
-    return slotEffects;
+    if (defenderStunned) {
+      if (result === "advantage") {
+        result = "normal";
+      } else if (result === "normal") {
+        result = "disadvantage";
+      }
+    }
+    return result;
   }
 
-  function getDefenceCoinMode(resolution) {
-    const override =
-      resolution.card.defenceModifiers?.[
-        resolution.kind === "pin" ? "pin" : resolution.onSlot ? "onSlot" : "offSlot"
-      ];
+  function getDefenceCoinMode(state, resolution) {
+    const effectOverride = coinModeOverrideFromCardEffects(state, resolution);
+    const baseNeedsOffSlotAssist = resolution.kind === "attack" && resolution.onSlot === false;
 
-    if (override) {
-      return override;
+    let mode;
+    if (effectOverride === "disadvantage") {
+      mode = "disadvantage";
+    } else if (effectOverride === "advantage") {
+      mode = "advantage";
+    } else if (baseNeedsOffSlotAssist) {
+      mode = "advantage";
+    } else {
+      mode = "normal";
     }
 
-    if (resolution.kind === "attack" && resolution.onSlot === false) {
-      return "advantage";
-    }
-
-    return "normal";
+    const attackerPlayer = getPlayer(state, resolution.attackerKey);
+    const defenderPlayer = getPlayer(state, resolution.defenderKey);
+    return applyStunToDefenceCoinMode(mode, Boolean(attackerPlayer.stunned), Boolean(defenderPlayer.stunned));
   }
 
   function flipCoins(state, count) {
@@ -1504,7 +1826,7 @@
     }
 
     if (card.type === "taunt") {
-      score += 10 + getPinfallEffectPressure(card.onSlotEffect) + (onSlot ? 3 : 0);
+      score += 10 + estimateFailPressureFromCard(card) + (onSlot ? 3 : 0);
     }
 
     if (card.type === "pin") {
@@ -1514,14 +1836,24 @@
     return score;
   }
 
-  function getPinfallEffectPressure(effects) {
-    return (effects || []).reduce((total, effect) => {
-      if (effect?.type === "add_pinfall" || effect?.type === "pinfall") {
-        return total + (effect.card === "Fail" ? effect.amount || 1 : 0);
-      }
+  function estimateFailPressureFromCard(card) {
+    let total = 0;
+    const walkOps = (ops) => {
+      (ops || []).forEach((op) => {
+        if (op.type === "add_pinfall_to" && op.pinCard === "Fail") {
+          total += Number(op.amount || 1);
+        }
+        if (op.type === "dual_d20_winner_pick") {
+          walkOps(op.attackerWins);
+          walkOps(op.defenderWins);
+        }
+      });
+    };
 
-      return total;
-    }, 0);
+    cloneCardEffectRules(card).forEach((rule) => {
+      walkOps(rule.ops);
+    });
+    return total;
   }
 
   function chooseAiDefence(state) {
@@ -1537,7 +1869,7 @@
     const threat =
       state.resolution.kind === "pin"
         ? 99
-        : (state.resolution.card.damage || 0) + getPinfallEffectPressure(state.resolution.card.onHitEffects);
+        : (state.resolution.card.damage || 0) + estimateFailPressureFromCard(state.resolution.card);
     let defendChance = state.resolution.kind === "pin" ? 0.9 : state.resolution.onSlot ? 0.55 : 0.75;
 
     if (threat <= 3) {
@@ -1640,7 +1972,7 @@
     }
 
     if (card.type === "taunt") {
-      const pressure = getPinfallEffectPressure(card.onSlotEffect);
+      const pressure = estimateFailPressureFromCard(card);
       deterministicScore += 10;
       breakdown.push({ label: "Taunt base", value: 10 });
       deterministicScore += pressure;
@@ -1703,7 +2035,7 @@
     const threat =
       state.resolution.kind === "pin"
         ? 99
-        : (state.resolution.card.damage || 0) + getPinfallEffectPressure(state.resolution.card.onHitEffects);
+        : (state.resolution.card.damage || 0) + estimateFailPressureFromCard(state.resolution.card);
     let defendChance = state.resolution.kind === "pin" ? 0.9 : state.resolution.onSlot ? 0.55 : 0.75;
 
     if (threat <= 3) {
@@ -1774,8 +2106,8 @@
       defenderKey: state.resolution.defenderKey,
       threat,
       defendChance: roundScore(defendChance),
-      coinMode: getDefenceCoinMode(state.resolution),
-      defenceWinRate: roundScore(getDefenceWinRate(getDefenceCoinMode(state.resolution))),
+      coinMode: getDefenceCoinMode(state, state.resolution),
+      defenceWinRate: roundScore(getDefenceWinRate(getDefenceCoinMode(state, state.resolution))),
       rationale: buildAiDefenceRationale(state.resolution, threat, defendChance, dodges, reversals),
       choices: rankedChoices
     };
@@ -1875,6 +2207,335 @@
     return card.validSlot === slotNumber;
   }
 
+  function cloneCardEffectRules(card) {
+    const fromJson = Array.isArray(card.effectOps) ? card.effectOps : null;
+    if (fromJson && fromJson.length > 0) {
+      return JSON.parse(JSON.stringify(fromJson));
+    }
+    const built = CARD_EFFECT_OPS_BY_ID[String(card.id)];
+    return built ? JSON.parse(JSON.stringify(built)) : [];
+  }
+
+  function previousSlotWasTaunt(state, slotNumber) {
+    if (slotNumber < 2) {
+      return false;
+    }
+    const prior = state.turn.slots[slotNumber - 2];
+    return Boolean(prior?.card && prior.card.type === "taunt");
+  }
+
+  function effectRuleMatches(state, resolution, rule) {
+    if (Array.isArray(rule.ifPlayingSlotIs) && rule.ifPlayingSlotIs.length > 0) {
+      if (!rule.ifPlayingSlotIs.includes(resolution.slot)) {
+        return false;
+      }
+    }
+    if (rule.ifPreviousPlayedWasTaunt && !previousSlotWasTaunt(state, resolution.slot)) {
+      return false;
+    }
+    if (Array.isArray(rule.ifDefenseChoiceIs) && rule.ifDefenseChoiceIs.length > 0) {
+      const choice = resolution.defence?.choice;
+      if (!choice || !rule.ifDefenseChoiceIs.includes(choice)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function buildAttackEffectContext(state, resolution) {
+    return {
+      state,
+      resolution,
+      attackerKey: resolution.attackerKey,
+      defenderKey: resolution.defenderKey
+    };
+  }
+
+  function resolveTargetPlayerKey(ctx, keySpec) {
+    if (keySpec === "attackerKey") {
+      return ctx.attackerKey;
+    }
+    if (keySpec === "defenderKey") {
+      return ctx.defenderKey;
+    }
+    return null;
+  }
+
+  function coinModeOverrideFromCardEffects(state, resolution) {
+    let override = null;
+    const card = resolution.card;
+    for (const rule of card.effectOps || []) {
+      if (rule.when !== CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL) {
+        continue;
+      }
+      if (!effectRuleMatches(state, resolution, rule)) {
+        continue;
+      }
+      (rule.ops || []).forEach((op) => {
+        if (op.type === "override_defender_mode" && op.mode) {
+          override = op.mode;
+        }
+      });
+    }
+    return override;
+  }
+
+  function getPreDamageBonuses(state, card, resolution) {
+    let bonus = 0;
+    for (const rule of card.effectOps || []) {
+      if (rule.when !== CARD_EFFECT_TIMING.BEFORE_DAMAGE_ROLL) {
+        continue;
+      }
+      if (!effectRuleMatches(state, resolution, rule)) {
+        continue;
+      }
+      (rule.ops || []).forEach((op) => {
+        if (op.type === "temp_attack_damage_bonus") {
+          bonus += Number(op.amount || 0);
+        }
+      });
+    }
+    const chain = state.turn.effectBuff.nextAttackDamageBonus || 0;
+    const line = state.turn.effectBuff.slotLineBonus;
+    if (
+      line &&
+      Array.isArray(line.slots) &&
+      line.slots.includes(resolution.slot) &&
+      typeof line.damage === "number"
+    ) {
+      bonus += line.damage;
+    }
+    return bonus + chain;
+  }
+
+  function getCounterDamageForDefence(state, card, choice, resolutionSlot) {
+    let value = choice === "dodge" ? Number(card.missDamage || 0) : Number(card.reverseDamage || 0);
+    const line = state.turn.effectBuff.slotLineBonus;
+    if (!line || !Array.isArray(line.slots) || !line.slots.includes(resolutionSlot)) {
+      return value;
+    }
+    if (choice === "dodge") {
+      value += Number(line.missDamage || 0);
+    } else {
+      value += Number(line.reverseDamage || 0);
+    }
+    return value;
+  }
+
+  function discardRandomFromHandCount(state, playerKey, count, sourceName) {
+    const player = getPlayer(state, playerKey);
+    let discarded = 0;
+    for (let index = 0; index < count; index += 1) {
+      if (player.hand.length === 0) {
+        break;
+      }
+      const pick = Math.floor(nextRandom(state) * player.hand.length);
+      const [removed] = player.hand.splice(pick, 1);
+      player.discardPile.push(removed);
+      discarded += 1;
+      addLog(
+        state,
+        `${player.name} discards ${removed.name} at random${sourceName ? ` (${sourceName})` : ""}.`
+      );
+    }
+    return discarded;
+  }
+
+  function drawCardsToHand(state, playerKey, count) {
+    const player = getPlayer(state, playerKey);
+    let drawn = 0;
+    for (let index = 0; index < count; index += 1) {
+      if (player.maneuverDeck.length === 0) {
+        break;
+      }
+      player.hand.push(player.maneuverDeck.shift());
+      drawn += 1;
+    }
+    if (drawn > 0) {
+      addLog(state, `${player.name} draws ${drawn} ${pluralize("card", drawn)} from the maneuver deck.`);
+    }
+    return drawn;
+  }
+
+  function setPlayerStunned(state, playerKey, value, sourceName) {
+    const player = getPlayer(state, playerKey);
+    player.stunned = Boolean(value);
+    if (value) {
+      addLog(state, `${player.name} is stunned${sourceName ? ` (${sourceName})` : ""}.`);
+    } else {
+      addLog(state, `${player.name} shakes off stun${sourceName ? ` (${sourceName})` : ""}.`);
+    }
+  }
+
+  function cloneVirtualPinCard() {
+    return normalizeCard({
+      id: "pin",
+      name: "Pin",
+      type: "pin",
+      rarity: "common",
+      validSlot: "any",
+      afterUse: "discard",
+      damage: 0,
+      reverseDamage: 0,
+      missDamage: 0,
+      csvSlot: "any",
+      category: "",
+      effect: "",
+      image: "",
+      effectOps: []
+    });
+  }
+
+  function beginImmediatePinFromAttack(state) {
+    state.turn.immediatePinQueued = false;
+    const attackerKey = state.turn.attackerKey;
+    const defenderKey = state.turn.defenderKey;
+    state.turn.playedPin = true;
+
+    state.resolution = {
+      kind: "pin",
+      card: cloneVirtualPinCard(),
+      cardOwnerKey: attackerKey,
+      attackerKey,
+      defenderKey,
+      slot: Math.min(state.turn.playsUsed, state.rules.maxSequenceSlots),
+      onSlot: null,
+      awaitingDefenceChoice: false,
+      awaitingCoinCall: false,
+      defence: null,
+      pinHistory: []
+    };
+
+    transitionTo(state, PHASES.RESOLVE_PIN);
+    beginPinResolution(state);
+    return state;
+  }
+
+  function executeCardOp(state, ctx, op) {
+    switch (op.type) {
+      case "queue_immediate_pin":
+        state.turn.immediatePinQueued = true;
+        break;
+      case "self_damage": {
+        const amt = Number(op.amount || 0);
+        if (amt > 0) {
+          const dr = applyDamage(state, ctx.attackerKey, amt);
+          logDamageThresholds(state, ctx.attackerKey, dr);
+          addLog(
+            state,
+            `${getPlayer(state, ctx.attackerKey).name} takes ${amt} damage from ${ctx.resolution.card.name}.`
+          );
+        }
+        break;
+      }
+      case "add_pinfall_to": {
+        const target = resolveTargetPlayerKey(ctx, op.targetKey);
+        if (!target || !op.pinCard) {
+          break;
+        }
+        addPinfallCards(state, target, op.pinCard, Number(op.amount || 1), ctx.resolution.card.name);
+        break;
+      }
+      case "add_pinfall_scaling_slot": {
+        const amount = Number(ctx.resolution.slot || 1);
+        addPinfallCards(state, ctx.attackerKey, op.pinCard || "Kickout", amount, ctx.resolution.card.name);
+        break;
+      }
+      case "discard_random_from_hand": {
+        const targets = op.targets || [];
+        targets.forEach((entry) => {
+          const tk = resolveTargetPlayerKey(ctx, entry.key);
+          if (tk) {
+            discardRandomFromHandCount(state, tk, Number(entry.count || 1), ctx.resolution.card.name);
+          }
+        });
+        break;
+      }
+      case "draw_cards": {
+        const targets = op.targets || [];
+        targets.forEach((entry) => {
+          const tk = resolveTargetPlayerKey(ctx, entry.key);
+          if (tk) {
+            drawCardsToHand(state, tk, Number(entry.count || 1));
+          }
+        });
+        break;
+      }
+      case "set_player_stunned": {
+        const key = resolveTargetPlayerKey(ctx, op.target === "attacker" ? "attackerKey" : "defenderKey");
+        if (key) {
+          setPlayerStunned(state, key, Boolean(op.value), ctx.resolution.card.name);
+        }
+        break;
+      }
+      case "add_next_attack_damage_bonus": {
+        state.turn.effectBuff.nextAttackDamageBonus += Number(op.amount || 0);
+        addLog(
+          state,
+          `${getPlayer(state, ctx.attackerKey).name} sets up +${op.amount} damage on the next attack this turn.`
+        );
+        break;
+      }
+      case "grant_heel_negative_ignore_next":
+        state.turn.effectBuff.ignoreNextHeelDefendedPenalty = true;
+        addLog(state, `${getPlayer(state, ctx.attackerKey).name} can ignore the next heel-style defended penalty.`);
+        break;
+      case "grant_slot_bonus_line":
+        state.turn.effectBuff.slotLineBonus = {
+          slots: [...(op.slots || [])],
+          damage: Number(op.damage || 0),
+          reverseDamage: Number(op.reverseDamage || 0),
+          missDamage: Number(op.missDamage || 0)
+        };
+        addLog(
+          state,
+          `${getPlayer(state, ctx.attackerKey).name} powers up attacks in later slots (+${op.damage} damage / counters).`
+        );
+        break;
+      case "dual_d20_winner_pick": {
+        let attackerRoll = rollD20(state);
+        let defenderRoll = rollD20(state);
+        while (attackerRoll === defenderRoll) {
+          attackerRoll = rollD20(state);
+          defenderRoll = rollD20(state);
+        }
+        addLog(
+          state,
+          `${getPlayer(state, ctx.attackerKey).name} rolls ${attackerRoll}. ${getPlayer(state, ctx.defenderKey).name} rolls ${defenderRoll} (${ctx.resolution.card.name}).`
+        );
+        const branches = attackerRoll > defenderRoll ? op.attackerWins : op.defenderWins;
+        (branches || []).forEach((nested) => executeCardOp(state, ctx, nested));
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  function applyEffectRulesForTiming(state, timing, resolution, extra = {}) {
+    const card = resolution.card;
+    const ctx = { ...buildAttackEffectContext(state, resolution), ...extra };
+    for (const rule of card.effectOps || []) {
+      if (rule.when !== timing) {
+        continue;
+      }
+      if (!effectRuleMatches(state, resolution, rule)) {
+        continue;
+      }
+      if (timing === CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED && rule.skipFirstIfRefHeelBypass) {
+        if (state.turn.effectBuff.ignoreNextHeelDefendedPenalty) {
+          state.turn.effectBuff.ignoreNextHeelDefendedPenalty = false;
+          addLog(
+            state,
+            `${getPlayer(state, ctx.attackerKey).name} ignores a heel defended penalty (Ref-style protection).`
+          );
+          continue;
+        }
+      }
+      (rule.ops || []).forEach((op) => executeCardOp(state, ctx, op));
+    }
+  }
+
   function normalizeCard(card) {
     const normalizedSlot = normalizeSlotDefinition(card);
     return {
@@ -1893,12 +2554,8 @@
       missDamage: Number(card.missDamage || 0),
       onSlotDamage: card.onSlotDamage === undefined ? undefined : Number(card.onSlotDamage),
       offSlotDamage: card.offSlotDamage === undefined ? undefined : Number(card.offSlotDamage),
-      onSlotEffect: cloneEffects(card.onSlotEffect),
-      offSlotEffect: cloneEffects(card.offSlotEffect),
-      onHitEffects: cloneEffects(card.onHitEffects),
-      onPinEffects: cloneEffects(card.onPinEffects),
       afterUse: card.afterUse === "exhaust" ? "exhaust" : "discard",
-      defenceModifiers: cloneDefenceModifiers(card.defenceModifiers),
+      effectOps: cloneCardEffectRules(card),
       flags: { ...(card.flags || {}) }
     };
   }
@@ -2229,7 +2886,7 @@
       return function nextQueuedValue() {
         const value = input[index];
         index += 1;
-        return value === undefined ? 0 : value;
+        return value === undefined ? Math.random() : value;
       };
     }
 

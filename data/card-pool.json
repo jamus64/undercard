@@ -12,7 +12,7 @@
     "reverseDamage": 5,
     "missDamage": 1,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Brawler",
     "effect": "When played in Slot 1, defender has Disadvantage."
   },
@@ -29,7 +29,7 @@
     "reverseDamage": 7,
     "missDamage": 7,
     "stun": "",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "Brawler",
     "effect": "On success, immediately Pin."
   },
@@ -46,7 +46,7 @@
     "reverseDamage": 3,
     "missDamage": 3,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Brawler",
     "effect": ""
   },
@@ -63,7 +63,7 @@
     "reverseDamage": 6,
     "missDamage": 6,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Brawler",
     "effect": "On success, attacker takes 3 self-damage."
   },
@@ -80,7 +80,7 @@
     "reverseDamage": 4,
     "missDamage": 4,
     "stun": "",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "Brawler",
     "effect": "If defended, attacker is Stunned."
   },
@@ -97,7 +97,7 @@
     "reverseDamage": 3,
     "missDamage": 2,
     "stun": "Y",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Heel",
     "effect": "On success, apply Stun. On fail, add 1 Fail to own deck."
   },
@@ -114,7 +114,7 @@
     "reverseDamage": 5,
     "missDamage": 2,
     "stun": "Y",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "Heel",
     "effect": "On success, immediately Pin. On fail, add 2 Fails to own deck."
   },
@@ -131,7 +131,7 @@
     "reverseDamage": 4,
     "missDamage": 3,
     "stun": "Y",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Heel",
     "effect": "On success, opponent discards 1 at random. On fail, attacker discards 1 at random."
   },
@@ -148,7 +148,7 @@
     "reverseDamage": 0,
     "missDamage": 0,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Heel",
     "effect": "The next Heel move you play this turn ignores its negative fail effect. On fail, add 1 Fail to your own Pinfall deck."
   },
@@ -165,7 +165,7 @@
     "reverseDamage": 2,
     "missDamage": 3,
     "stun": "Y",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "Heel",
     "effect": "On success, Stun + opponent discards 1. On fail, add 2 Fails to own deck."
   },
@@ -182,7 +182,7 @@
     "reverseDamage": 1,
     "missDamage": 3,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "High-Flyer",
     "effect": ""
   },
@@ -199,7 +199,7 @@
     "reverseDamage": 3,
     "missDamage": 7,
     "stun": "",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "High-Flyer",
     "effect": "On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard 2 at random."
   },
@@ -216,7 +216,7 @@
     "reverseDamage": 3,
     "missDamage": 7,
     "stun": "",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "High-Flyer",
     "effect": "On success, immediately Pin."
   },
@@ -233,7 +233,7 @@
     "reverseDamage": 4,
     "missDamage": 6,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "High-Flyer",
     "effect": ""
   },
@@ -250,7 +250,7 @@
     "reverseDamage": 3,
     "missDamage": 7,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "High-Flyer",
     "effect": "If played after a Taunt, defender has Disadvantage."
   },
@@ -267,7 +267,7 @@
     "reverseDamage": 2,
     "missDamage": 4,
     "stun": "",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "High-Flyer",
     "effect": ""
   },
@@ -284,9 +284,9 @@
     "reverseDamage": 5,
     "missDamage": 2,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Power",
-    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "effect": "On success, add 1 Fail to opponent\u2019s Pinfall deck."
   },
   {
     "id": "suplex",
@@ -301,9 +301,9 @@
     "reverseDamage": 5,
     "missDamage": 2,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Power",
-    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "effect": "On success, add 1 Fail to opponent\u2019s Pinfall deck."
   },
   {
     "id": "bear_hug",
@@ -318,9 +318,9 @@
     "reverseDamage": 2,
     "missDamage": 2,
     "stun": "Y",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Power",
-    "effect": "Submission. On success, add 1 Fail to opponent’s Pinfall deck."
+    "effect": "Submission. On success, add 1 Fail to opponent\u2019s Pinfall deck."
   },
   {
     "id": "chokeslam",
@@ -335,7 +335,7 @@
     "reverseDamage": 6,
     "missDamage": 6,
     "stun": "",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "Power",
     "effect": "On success, immediately Pin."
   },
@@ -352,7 +352,7 @@
     "reverseDamage": 6,
     "missDamage": 6,
     "stun": "Y",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "Power",
     "effect": "On success, add 1 Kickout! to your Pinfall deck."
   },
@@ -369,7 +369,7 @@
     "reverseDamage": 5,
     "missDamage": 3,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Power",
     "effect": ""
   },
@@ -386,7 +386,7 @@
     "reverseDamage": 1,
     "missDamage": 0,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Striker",
     "effect": ""
   },
@@ -403,7 +403,7 @@
     "reverseDamage": 1,
     "missDamage": 0,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Striker",
     "effect": "Next Attack this turn gains +1 ATK."
   },
@@ -420,7 +420,7 @@
     "reverseDamage": 5,
     "missDamage": 7,
     "stun": "",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "Striker",
     "effect": "On success, immediately Pin."
   },
@@ -437,7 +437,7 @@
     "reverseDamage": 2,
     "missDamage": 2,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Striker",
     "effect": ""
   },
@@ -454,7 +454,7 @@
     "reverseDamage": 3,
     "missDamage": 4,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Striker",
     "effect": "If played in Slot 3, +2 ATK."
   },
@@ -471,7 +471,7 @@
     "reverseDamage": 1,
     "missDamage": 1,
     "stun": "",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "Technical",
     "effect": "On success, opponent discards 1 at random."
   },
@@ -488,9 +488,9 @@
     "reverseDamage": 2,
     "missDamage": 1,
     "stun": "",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "category": "Technical",
-    "effect": "On success, add 1 Fail to opponent’s Pinfall deck."
+    "effect": "On success, add 1 Fail to opponent\u2019s Pinfall deck."
   },
   {
     "id": "figure_four",
@@ -505,9 +505,9 @@
     "reverseDamage": 4,
     "missDamage": 2,
     "stun": "Y",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "category": "Technical",
-    "effect": "On success, add 3 Fails to opponent’s Pinfall deck."
+    "effect": "On success, add 3 Fails to opponent\u2019s Pinfall deck."
   },
   {
     "id": "sharpshooter",
@@ -522,7 +522,7 @@
     "reverseDamage": 4,
     "missDamage": 2,
     "stun": "Y",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "category": "Technical",
     "effect": "On success, Stun + opponent discards 1."
   },
@@ -539,7 +539,7 @@
     "reverseDamage": 0,
     "missDamage": 0,
     "stun": "",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Technical",
     "effect": "Next Attack this turn gains +2 ATK."
   },
@@ -556,7 +556,7 @@
     "reverseDamage": 2,
     "missDamage": 0,
     "stun": "Y",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "category": "Technical",
     "effect": "On success, apply Stun."
   },
@@ -568,11 +568,9 @@
     "rarity": "common",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 2 / 3",
-    "raritySymbol": "●",
-    "effect": "Both players roll a D20. If the attacker’s roll is higher, their next Attack this turn gains +1 ATK. If the defender’s roll is higher, the opponent draws 1 card.",
+    "raritySymbol": "\u25cf",
+    "effect": "Both players roll a D20. If the attacker\u2019s roll is higher, their next Attack this turn gains +1 ATK. If the defender\u2019s roll is higher, the opponent draws 1 card.",
     "cardDesignNotes": "Earthquake pose"
   },
   {
@@ -583,10 +581,8 @@
     "rarity": "uncommon",
     "validSlot": 2,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "2",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "effect": "Add +2 to next Attack",
     "cardDesignNotes": ""
   },
@@ -598,10 +594,8 @@
     "rarity": "common",
     "validSlot": 2,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "2 / 3",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "effect": "",
     "cardDesignNotes": ""
   },
@@ -613,10 +607,8 @@
     "rarity": "special",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "effect": "Cards in 2nd and 3rd Slot get +2 to ATK, RVS & MSS",
     "cardDesignNotes": "Hogan pose"
   },
@@ -628,10 +620,8 @@
     "rarity": "uncommon",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 3",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "effect": "Remove Stun",
     "cardDesignNotes": ""
   },
@@ -643,10 +633,8 @@
     "rarity": "rare",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 3",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "effect": "Both players discard 1 card at random",
     "cardDesignNotes": "Steve Blackman pose"
   },
@@ -658,10 +646,8 @@
     "rarity": "rare",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 2",
-    "raritySymbol": "★",
+    "raritySymbol": "\u2605",
     "effect": "Add Kickout! cards to your Pinfall deck equal to the slot played (1 if Slot 1, 2 if Slot 2).",
     "cardDesignNotes": "Jimmy Del Ray"
   },
@@ -673,10 +659,8 @@
     "rarity": "special",
     "validSlot": 3,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "3",
-    "raritySymbol": "❋",
+    "raritySymbol": "\u274b",
     "effect": "Add 1 Kickout! card to your Pinfall deck",
     "cardDesignNotes": ""
   },
@@ -688,10 +672,8 @@
     "rarity": "common",
     "validSlot": 2,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "2 / 3",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "effect": "Both players discard 1 card at random",
     "cardDesignNotes": ""
   },
@@ -703,10 +685,8 @@
     "rarity": "common",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 2",
-    "raritySymbol": "●",
+    "raritySymbol": "\u25cf",
     "effect": "Add +1 to next Attack",
     "cardDesignNotes": ""
   },
@@ -718,10 +698,8 @@
     "rarity": "uncommon",
     "validSlot": 1,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "1 / 2 / 3",
-    "raritySymbol": "◆",
+    "raritySymbol": "\u25c6",
     "effect": "Draw 1 card, then discard 1 card at random",
     "cardDesignNotes": ""
   },
@@ -733,11 +711,9 @@
     "rarity": "rare",
     "validSlot": 3,
     "afterUse": "discard",
-    "onSlotEffect": [],
-    "offSlotEffect": [],
     "csvSlot": "3",
-    "raritySymbol": "★",
-    "effect": "Both players roll a D20. If the attacker’s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender’s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck.",
+    "raritySymbol": "\u2605",
+    "effect": "Both players roll a D20. If the attacker\u2019s roll is higher, they add 1 Kickout! card to their Pinfall deck. If the defender\u2019s roll is higher, the attacker adds 2 Fail! cards to their Pinfall deck.",
     "cardDesignNotes": ""
   },
   {

@@ -4,16 +4,43 @@ const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
 const wrestlers = require("../data/wrestlers.json");
 
+/** Stable seed so CI is reproducible; picks a matchup other than hardcoding wrestlers[0] vs wrestlers[1]. */
+const SMOKE_MATCH_SEED = Number(process.env.SMOKE_SUITE_SEED || 97531);
+
 function buildCardLookup(cards) {
   return Object.fromEntries(cards.map((card) => [card.id, card]));
 }
 
+function makeRandomSource(seed) {
+  let value = seed % 2147483647;
+  if (value <= 0) {
+    value += 2147483646;
+  }
+  return function next() {
+    value = (value * 16807) % 2147483647;
+    return (value - 1) / 2147483646;
+  };
+}
+
+function pickTwoWrestlers(random) {
+  const n = wrestlers.length;
+  const playerIndex = Math.floor(random() * n);
+  let enemyIndex = Math.floor(random() * n);
+  if (enemyIndex === playerIndex && n > 1) {
+    enemyIndex = (enemyIndex + 1) % n;
+  }
+  return {
+    player: wrestlers[playerIndex],
+    enemy: wrestlers[enemyIndex] || wrestlers[playerIndex]
+  };
+}
+
 function simulateSingleMatch(cardLookup) {
-  const player = wrestlers[0];
-  const enemy = wrestlers[1] || wrestlers[0];
+  const random = makeRandomSource(SMOKE_MATCH_SEED);
+  const { player, enemy } = pickTwoWrestlers(random);
 
   const state = Engine.createMatch({
-    random: [0.1, 0.6, 0.2, 0.7, 0.3, 0.8],
+    random,
     player: {
       name: player.name,
       maneuverDeck: Engine.buildDeckForWrestler(player, cardLookup, deckRecipe),

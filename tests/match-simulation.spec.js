@@ -11,8 +11,13 @@ const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
 const wrestlers = require("../data/wrestlers.json");
 
-// Global simulation size. Increase/decrease this for analysis runs.
-const MATCH_SIMULATION_COUNT = Number(process.env.MATCH_SIMULATION_COUNT || 2000);
+// Default run size (edit here). Optional override: UNDERCARD_MATCH_SIMULATION_COUNT — not
+// MATCH_SIMULATION_COUNT, because that name is easy to export globally (e.g. 200) and would
+// override this file every time Playwright inherits the shell environment.
+const DEFAULT_MATCH_SIMULATION_COUNT = 20000;
+const MATCH_SIMULATION_COUNT = Number(
+  process.env.UNDERCARD_MATCH_SIMULATION_COUNT || DEFAULT_MATCH_SIMULATION_COUNT
+);
 
 function buildCardLookup(cards) {
   return Object.fromEntries(cards.map((card) => [card.id, card]));
@@ -33,22 +38,26 @@ function cloneWrestler(wrestler) {
   return { name: wrestler.name, category: wrestler.category };
 }
 
-function createRandomMatch(random) {
-  const playerIndex = Math.floor(random() * wrestlers.length);
-  let enemyIndex = Math.floor(random() * wrestlers.length);
-  if (enemyIndex === playerIndex && wrestlers.length > 1) {
-    enemyIndex = (enemyIndex + 1) % wrestlers.length;
+/** Every ordered pair (player role, opponent role) appears equally over seeds 0 .. n*(n-1)-1. Strong spread for large sim counts. */
+function matchupFromSeed(seed) {
+  const n = wrestlers.length;
+  if (n < 2) {
+    throw new Error("Need at least two wrestlers for match simulation.");
   }
-
+  const pairCount = n * (n - 1);
+  const k = ((seed % pairCount) + pairCount) % pairCount;
+  const pi = Math.floor(k / (n - 1));
+  const pos = k % (n - 1);
+  const ei = pos < pi ? pos : pos + 1;
   return {
-    player: cloneWrestler(wrestlers[playerIndex]),
-    enemy: cloneWrestler(wrestlers[enemyIndex])
+    player: cloneWrestler(wrestlers[pi]),
+    enemy: cloneWrestler(wrestlers[ei])
   };
 }
 
 function runSingleMatch(seed, cardLookup) {
+  const matchup = matchupFromSeed(seed - 1);
   const random = makeRandomSource(seed);
-  const matchup = createRandomMatch(random);
   const state = Engine.createMatch({
     random,
     player: {
@@ -149,7 +158,9 @@ function runSimulationReport() {
       "41-50": 0,
       "51+": 0
     },
-    matchupCounts: {}
+    matchupCounts: {},
+    asPlayersWrestler: {},
+    asOpponentWrestler: {}
   };
 
   for (let index = 0; index < MATCH_SIMULATION_COUNT; index += 1) {
@@ -174,6 +185,8 @@ function runSimulationReport() {
 
     const matchupKey = `${result.playerName} vs ${result.enemyName}`;
     summary.matchupCounts[matchupKey] = (summary.matchupCounts[matchupKey] || 0) + 1;
+    summary.asPlayersWrestler[result.playerName] = (summary.asPlayersWrestler[result.playerName] || 0) + 1;
+    summary.asOpponentWrestler[result.enemyName] = (summary.asOpponentWrestler[result.enemyName] || 0) + 1;
 
     if (result.turns > summary.longest.turns) {
       summary.longest = { turns: result.turns, index: index + 1, reason: result.reason };
@@ -190,6 +203,21 @@ function runSimulationReport() {
   const averageEnemyFail = summary.totalEnemyFail / summary.total;
   const sortedReasons = Object.entries(summary.reasonCounts).sort((a, b) => b[1] - a[1]);
   const sortedMatchups = Object.entries(summary.matchupCounts).sort((a, b) => b[1] - a[1]);
+  const sortedPlayersRole = wrestlers.map((w) => [w.name, summary.asPlayersWrestler[w.name] || 0]);
+  const sortedOpponentRole = wrestlers.map((w) => [w.name, summary.asOpponentWrestler[w.name] || 0]);
+  const roleCountsArr = wrestlers.map((w) => summary.asPlayersWrestler[w.name] || 0);
+  const oppCountsArr = wrestlers.map((w) => summary.asOpponentWrestler[w.name] || 0);
+
+  summary.spreadChecks = {
+    playerRoleDelta:
+      roleCountsArr.length === 0
+        ? 0
+        : Math.max(...roleCountsArr) - Math.min(...roleCountsArr),
+    opponentRoleDelta:
+      oppCountsArr.length === 0
+        ? 0
+        : Math.max(...oppCountsArr) - Math.min(...oppCountsArr)
+  };
 
   console.log("");
   console.log("=== UnderCard Match Simulation ===");
@@ -212,7 +240,27 @@ function runSimulationReport() {
     console.log(`  ${count} (${pct}%): ${reason}`);
   });
   console.log("");
-  console.log("Matchup coverage:");
+  console.log(
+    `Wrestler as PLAYER's deck (target ~${(summary.total / wrestlers.length).toFixed(1)} each; matchups cycle all ${wrestlers.length * (wrestlers.length - 1)} ordered pairs):`
+  );
+  sortedPlayersRole.forEach(([name, count]) => {
+    const pct = ((count / summary.total) * 100).toFixed(1);
+    console.log(`  ${name}: ${count} (${pct}%)`);
+  });
+  console.log(
+    `  Spread (max − min appearances as player deck): ${summary.spreadChecks.playerRoleDelta}`
+  );
+  console.log("");
+  console.log("Wrestler as OPPONENT's deck:");
+  sortedOpponentRole.forEach(([name, count]) => {
+    const pct = ((count / summary.total) * 100).toFixed(1);
+    console.log(`  ${name}: ${count} (${pct}%)`);
+  });
+  console.log(
+    `  Spread (max − min appearances as opponent deck): ${summary.spreadChecks.opponentRoleDelta}`
+  );
+  console.log("");
+  console.log("Matchup coverage (player vs opp pair counts):");
   sortedMatchups.forEach(([matchup, count]) => {
     console.log(`  ${matchup}: ${count}`);
   });
@@ -230,8 +278,25 @@ function runSimulationReport() {
 
 if (test && expect && require.main !== module) {
   test("simulates many matches and prints analysis log", () => {
+    test.setTimeout(Math.min(900_000, Math.max(30_000, MATCH_SIMULATION_COUNT * 5 + 20_000)));
+    expect(wrestlers.length).toBeGreaterThanOrEqual(2);
     const summary = runSimulationReport();
     expect(summary.total).toBeGreaterThan(0);
+
+    const n = wrestlers.length;
+    const pairCount = n * (n - 1);
+    const byName = summary.total / n;
+    if (summary.total >= pairCount) {
+      wrestlers.forEach((w) => {
+        expect(summary.asPlayersWrestler[w.name] || 0).toBeGreaterThan(0);
+        expect(summary.asOpponentWrestler[w.name] || 0).toBeGreaterThan(0);
+      });
+      const remainder = summary.total % pairCount;
+      const partialSlack = remainder === 0 ? 0 : n - 1;
+      const spreadTolerance = Math.max(2, Math.ceil(byName / 20), partialSlack);
+      expect(summary.spreadChecks.playerRoleDelta).toBeLessThanOrEqual(spreadTolerance);
+      expect(summary.spreadChecks.opponentRoleDelta).toBeLessThanOrEqual(spreadTolerance);
+    }
   });
 }
 

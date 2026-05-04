@@ -13,8 +13,8 @@
     maxSequenceSlots: 3,
     damagePerFail: 10,
     pinDrawCount: 3,
-    startingPinFails: 7,
-    startingPinKickouts: 5
+    startingPinFails: 3,
+    startingPinKickouts: 7
   });
   const RARITY_LIMIT_DEFAULTS = Object.freeze({
     common: 4,

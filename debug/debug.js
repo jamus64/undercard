@@ -202,7 +202,9 @@ function buildCardLibraryLabel(entry) {
 
 function ensureDefaultRosterSelection() {
   if (!app.settings.playerTemplateName) {
-    app.settings.playerTemplateName = gameData.wrestlers[0]?.name || "";
+    const roster = gameData.wrestlers;
+    app.settings.playerTemplateName =
+      (roster.length > 1 ? roster[1].name : roster[0]?.name) || "";
   }
 }
 
@@ -254,8 +256,11 @@ function createMatchFromSettings(settings) {
 }
 
 function pickMatchupFromSettings(settings) {
+  const roster = gameData.wrestlers;
+  const trimmed = typeof settings.playerTemplateName === "string" ? settings.playerTemplateName.trim() : "";
+  const named = trimmed ? roster.find((wrestler) => wrestler.name === trimmed) : null;
   const playerTemplate =
-    gameData.wrestlers.find((wrestler) => wrestler.name === settings.playerTemplateName) || gameData.wrestlers[0];
+    named || roster[Math.floor(Math.random() * roster.length)] || roster[0];
   const enemyTemplate = pickEnemyTemplate(playerTemplate, settings.enemyTemplateName);
 
   return {
@@ -274,26 +279,10 @@ function pickEnemyTemplate(playerTemplate, enemyTemplateName) {
 }
 
 function cloneWrestler(wrestler) {
-  if (!wrestler.signature) {
-    return {
-      name: wrestler.name
-    };
-  }
-
   return {
     name: wrestler.name,
-    signature: {
-      ...wrestler.signature,
-      onHitEffects: cloneEffects(wrestler.signature.onHitEffects),
-      onPinEffects: cloneEffects(wrestler.signature.onPinEffects),
-      onSlotEffect: cloneEffects(wrestler.signature.onSlotEffect),
-      offSlotEffect: cloneEffects(wrestler.signature.offSlotEffect)
-    }
+    category: wrestler.category
   };
-}
-
-function cloneEffects(effects) {
-  return Array.isArray(effects) ? effects.map((effect) => ({ ...effect })) : [];
 }
 
 function applyLiveRules() {
@@ -387,7 +376,11 @@ function handleSessionStorage(event) {
 
 function syncControlsFromSettings() {
   const settings = app.settings;
-  dom.playerTemplateSelect.value = settings.playerTemplateName || gameData.wrestlers[0]?.name || "";
+  dom.playerTemplateSelect.value =
+    (typeof settings.playerTemplateName === "string" && settings.playerTemplateName.trim()) ||
+    gameData.wrestlers[1]?.name ||
+    gameData.wrestlers[0]?.name ||
+    "";
   dom.enemyTemplateSelect.value = settings.enemyTemplateName || "";
   dom.initiativeSelect.value = settings.initiativeWinner || "";
   dom.aiStepDelayInput.value = String(settings.aiStepDelay);

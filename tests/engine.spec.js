@@ -1,5 +1,8 @@
 const { test, expect } = require("@playwright/test");
 const Engine = require("../game-engine");
+const CARD_POOL = require("../data/card-pool.json");
+
+const ON_TAUNT_RESOLVE = "on_taunt_resolve";
 
 function attack(id, slot, damage, extras = {}) {
   return Engine.normalizeCard({
@@ -11,24 +14,18 @@ function attack(id, slot, damage, extras = {}) {
     reverseDamage: extras.reverseDamage || 0,
     missDamage: extras.missDamage || 0,
     afterUse: extras.afterUse || "discard",
-    onSlotEffect: extras.onSlotEffect || [],
-    offSlotEffect: extras.offSlotEffect || [],
-    onHitEffects: extras.onHitEffects || [],
-    onPinEffects: extras.onPinEffects || []
+    ...(extras.effectOps ? { effectOps: extras.effectOps } : {})
   });
 }
 
-function taunt(id, slot, onSlotEffect = [], offSlotEffect = [], extras = {}) {
+function taunt(id, slot, extras = {}) {
   return Engine.normalizeCard({
     id,
     name: extras.name || id,
     type: "taunt",
     validSlot: slot,
     afterUse: extras.afterUse || "discard",
-    onSlotEffect,
-    offSlotEffect,
-    onHitEffects: [],
-    onPinEffects: []
+    effectOps: extras.effectOps || []
   });
 }
 
@@ -39,8 +36,15 @@ function pin(id, extras = {}) {
     type: "pin",
     validSlot: "any",
     afterUse: extras.afterUse || "discard",
-    onPinEffects: extras.onPinEffects || []
+    ...(extras.effectOps ? { effectOps: extras.effectOps } : {})
   });
+}
+
+function tauntAddsOpponentFail(amount = 1) {
+  return {
+    when: ON_TAUNT_RESOLVE,
+    ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount }]
+  };
 }
 
 function dodge(id = "dodge", extras = {}) {
@@ -113,6 +117,59 @@ function makeMatch(options = {}) {
   });
 }
 
+function cardById(id) {
+  const raw = CARD_POOL.find((c) => c.id === id);
+  if (!raw) {
+    throw new Error(`Unknown card id for tests: ${id}`);
+  }
+  return Engine.normalizeCard(raw);
+}
+
+function sizedOpeningDeck(cards) {
+  const deck = cards.map((entry) => (typeof entry === "string" ? cardById(entry) : entry));
+  let filler = 0;
+  while (deck.length < 6) {
+    deck.push(
+      Engine.normalizeCard({
+        id: `test_filler_${filler}`,
+        name: "Filler",
+        type: "attack",
+        csvSlot: "1/2/3",
+        damage: 1,
+        reverseDamage: 1,
+        missDamage: 0,
+        afterUse: "discard"
+      })
+    );
+    filler += 1;
+  }
+  return deck;
+}
+
+function dodgeOnlyDeck(count = 6) {
+  return Array.from({ length: count }, (_, i) =>
+    Engine.normalizeCard({
+      id: `test_dodge_${i}`,
+      name: "Dodge",
+      type: "dodge",
+      afterUse: "discard"
+    })
+  );
+}
+
+function anySlotAttack(id, damage = 1) {
+  return Engine.normalizeCard({
+    id,
+    name: id,
+    type: "attack",
+    csvSlot: "1/2/3",
+    damage,
+    reverseDamage: 1,
+    missDamage: 0,
+    afterUse: "discard"
+  });
+}
+
 function failCount(state, key) {
   return Engine.getPinfallSummary(state.players[key]).fail;
 }
@@ -134,7 +191,7 @@ test("cannot draw from discard and loses by deck exhaustion", () => {
   state.players.player.discardPile = [
     attack("discard_a", 1, 5),
     attack("discard_b", 2, 5),
-    taunt("discard_c", 3, [], [])
+    taunt("discard_c", 3)
   ];
 
   Engine.stopTurn(state);
@@ -318,7 +375,7 @@ test("successful taunt defence cancels taunt and ends attacker's turn", () => {
   const state = makeMatch({
     random: [0.1, 0.75],
     playerDeck: deckFromOpeningHand([
-      taunt("on_slot_taunt", 1, [{ type: "add_pinfall", card: "Fail", target: "opponent", amount: 1 }], [])
+      taunt("on_slot_taunt", 1, { effectOps: [tauntAddsOpponentFail()] })
     ]),
     enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
@@ -340,7 +397,9 @@ test("failed taunt defence allows taunt effect to resolve", () => {
   const state = makeMatch({
     random: [0.75, 0.1],
     playerDeck: deckFromOpeningHand([
-      taunt("on_slot_taunt", 1, [{ type: "add_pinfall", card: "Fail", target: "opponent", amount: 1 }], [])
+      taunt("on_slot_taunt", 1, { effectOps: [tauntAddsOpponentFail()] }),
+      attack("follow_slot2", 2, 5),
+      attack("follow_slot3", 3, 5)
     ]),
     enemyDeck: deckFromOpeningHand([dodge("enemy_dodge"), attack("enemy_attack", 1, 5)])
   });
@@ -433,7 +492,7 @@ test("adds a Fail card on combo success", () => {
     playerDeck: deckFromOpeningHand([
       attack("combo_1", 1, 4),
       attack("combo_2", 2, 4),
-      taunt("combo_3", 3, [], [])
+      taunt("combo_3", 3)
     ]),
     enemyDeck: deckFromOpeningHand([attack("enemy_attack", 1, 5)], () => attack("enemy_pad", 2, 4))
   });
@@ -454,7 +513,7 @@ test("off-slot cards do not count toward combo", () => {
     playerDeck: deckFromOpeningHand([
       attack("combo_1", 1, 4),
       attack("combo_breaker", 1, 4),
-      taunt("combo_3", 3, [], [])
+      taunt("combo_3", 3)
     ]),
     enemyDeck: deckFromOpeningHand([attack("enemy_attack", 1, 5)], () => attack("enemy_pad", 2, 4))
   });
@@ -476,11 +535,7 @@ test("cards with csvSlot can be played in any listed slot", () => {
         type: "attack",
         csvSlot: "1/3",
         damage: 5,
-        afterUse: "discard",
-        onSlotEffect: [],
-        offSlotEffect: [],
-        onHitEffects: [],
-        onPinEffects: []
+        afterUse: "discard"
       }),
       attack("filler_attack", 2, 1)
     ]),
@@ -490,7 +545,7 @@ test("cards with csvSlot can be played in any listed slot", () => {
   state.turn.nextSlot = 3;
   Engine.playOffensiveCard(state, 0, "player");
 
-  expect(state.turn.slots[2].card?.id).toBe("multi_slot_attack");
+  expect(state.turn.slots[2].card?.id).toBe("multi_slot_attack_0");
   expect(state.turn.slots[2].onSlot).toBe(true);
 });
 
@@ -559,4 +614,270 @@ test("adds Fail cards immediately at 10, 20, and 30 damage", () => {
 
   Engine.playOffensiveCard(state, 0, "player");
   expect(failCount(state, "enemy")).toBe(failStart + 3);
+});
+
+test("effect: clothesline on slot 1 applies defender disadvantage mode", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["clothesline"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  expect(state.resolution.defence.coinMode).toBe("disadvantage");
+});
+
+test("effect: jab adds +1 damage to the next attack this turn", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["jab", "elbow_drop"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(1);
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(8);
+});
+
+test("effect: dropkick in slot 3 gains temporary +2 attack damage", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["dropkick"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  state.turn.nextSlot = 3;
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(6);
+});
+
+test("effect: spear on hit queues an immediate pin attempt", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["spear"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.phase).toBe(Engine.PHASES.PINFALL_DRAW);
+  expect(state.pinAttempt).not.toBeNull();
+});
+
+test("effect: frog splash after a taunt applies defender disadvantage", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot_opener"), "shush", "frog_splash"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  expect(state.resolution.defence.coinMode).toBe("disadvantage");
+});
+
+test("effect: headbutt deals self damage on hit", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "headbutt"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.player.damage).toBe(3);
+  expect(state.players.enemy.damage).toBe(6);
+});
+
+test("effect: german suplex adds Fail to defender on hit", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "german_suplex"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  const start = failCount(state, "enemy");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(failCount(state, "enemy")).toBe(start + 1);
+});
+
+test("effect: powerbomb adds Kickout to attacker on hit", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck([
+      anySlotAttack("slot1_pad"),
+      anySlotAttack("slot2_pad"),
+      "powerbomb"
+    ]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  const koStart = Engine.getPinfallSummary(state.players.player).kickout;
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(Engine.getPinfallSummary(state.players.player).kickout).toBe(koStart + 1);
+});
+
+test("effect: roar adds +2 damage to the next attack this turn", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "roar", "dropkick"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(9);
+});
+
+test("effect: gun show D20 contest gives attacker +1 on win", () => {
+  const state = makeMatch({
+    random: [0.95, 0.02, 0.9, 0.1],
+    playerDeck: sizedOpeningDeck(["gun_show", "german_suplex"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(6);
+});
+
+test("effect: hulk up grants slot line damage bonus on listed slots", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["hulk_up", "elbow_drop"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.enemy.hand = [];
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.enemy.damage).toBe(8);
+});
+
+test("effect: cheap shot hit discards randomly from defender hand", () => {
+  const state = makeMatch({
+    random: [0.05],
+    playerDeck: sizedOpeningDeck(["cheap_shot"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  expect(state.players.enemy.hand).toHaveLength(5);
+});
+
+test("effect: wild swing defended stuns attacker (stun survives successful_defence turn end)", () => {
+  const state = makeMatch({
+    random: [0.02, 0.95],
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "wild_swing"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+  expect(state.players.player.stunned).toBe(true);
+  expect(state.phase).toBe(Engine.PHASES.TURN_END);
+  continueTurn(state);
+  expect(state.turn.attackerKey).toBe("enemy");
+  expect(state.players.player.stunned).toBe(true);
+});
+
+test("effect: eye rake defended adds Fail to attacker", () => {
+  const state = makeMatch({
+    random: [0.02, 0.95],
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "eye_rake"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  const startFails = failCount(state, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+  expect(failCount(state, "player")).toBe(startFails + 1);
+});
+
+test("effect: ref distraction lets low blow ignore defended penalty once", () => {
+  const state = makeMatch({
+    random: [0.05, 0.92],
+    playerDeck: sizedOpeningDeck(["ref_distraction", "low_blow"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  const failStart = failCount(state, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+  expect(failCount(state, "player")).toBe(failStart);
+});
+
+test("effect: low blow defended without ref bypass adds two Fails to attacker", () => {
+  const state = makeMatch({
+    random: [0.05, 0.92],
+    playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "low_blow"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  const failStart = failCount(state, "player");
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+  expect(failCount(state, "player")).toBe(failStart + 2);
+});
+
+test("effect: 450 splash on successful dodge discards two cards from attacker", () => {
+  const state = makeMatch({
+    random: [0.02, 0.95, 0.01, 0.01],
+    playerDeck: sizedOpeningDeck([
+      anySlotAttack("s1"),
+      anySlotAttack("s2"),
+      "450_splash"
+    ]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.playOffensiveCard(state, 0, "player");
+  expect(state.players.player.hand).toHaveLength(3);
+  Engine.prepareDefence(state, 0);
+  Engine.callDefenceCoin(state, "Heads");
+  expect(state.players.player.hand).toHaveLength(1);
+});
+
+test("effect: stunned attacker grants defender advantage on defence rolls", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["jab"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.player.stunned = true;
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.prepareDefence(state, 0);
+  expect(state.resolution.defence.coinMode).toBe("advantage");
+});
+
+test("effect: stunned defender rolls defence at disadvantage", () => {
+  const state = makeMatch({
+    initiativeWinner: "enemy",
+    enemyDeck: sizedOpeningDeck(["jab"]),
+    playerDeck: dodgeOnlyDeck()
+  });
+  state.players.player.stunned = true;
+  Engine.playOffensiveCard(state, 0, "enemy");
+  Engine.prepareDefence(state, 0);
+  expect(state.resolution.defence.coinMode).toBe("disadvantage");
+});
+
+test("effect: stun clears at end of the stunned wrestler's offensive turn (rules.txt)", () => {
+  const state = makeMatch({
+    playerDeck: sizedOpeningDeck(["jab"]),
+    enemyDeck: dodgeOnlyDeck()
+  });
+  state.players.player.stunned = true;
+  Engine.playOffensiveCard(state, 0, "player");
+  Engine.chooseNoDefence(state);
+  Engine.stopTurn(state);
+  expect(state.phase).toBe(Engine.PHASES.TURN_END);
+  Engine.continueAfterTurnEnd(state);
+  expect(state.players.player.stunned).toBe(false);
 });
