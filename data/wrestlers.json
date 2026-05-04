@@ -1,41 +1,11 @@
 [
   {
-    "name": "Joey 'Haddock Hands' Briggs",
-    "signature": {
-      "id": "joey_signature",
-      "name": "Dockside Backhand",
-      "type": "attack",
-      "rarity": "special",
-      "validSlot": 2,
-      "damage": 10,
-      "afterUse": "discard",
-      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
-    }
+    "name": "Joey 'Haddock Hands' Briggs"
   },
   {
-    "name": "Benji 'The Pinchy Fingers' Fellows",
-    "signature": {
-      "id": "benji_signature",
-      "name": "Heartstopper Knee",
-      "type": "attack",
-      "rarity": "special",
-      "validSlot": 2,
-      "damage": 9,
-      "afterUse": "discard",
-      "onHitEffects": [{ "type": "add_pinfall", "card": "Fail", "target": "opponent", "amount": 1 }]
-    }
+    "name": "Benji 'The Pinchy Fingers' Fellows"
   },
   {
-    "name": "Jamie 'Peter Peter' Wyatt",
-    "signature": {
-      "id": "jamie_signature",
-      "name": "Peak Form Press",
-      "type": "attack",
-      "rarity": "special",
-      "validSlot": 2,
-      "damage": 9,
-      "afterUse": "discard",
-      "onHitEffects": [{ "type": "add_pinfall", "card": "Kickout", "target": "self", "amount": 1 }]
-    }
+    "name": "Jamie 'Peter Peter' Wyatt"
   }
 ]
