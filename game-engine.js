@@ -915,16 +915,12 @@
       const counterDamage = defence.choice === "dodge" ? Number(attackCard.missDamage || 0) : Number(attackCard.reverseDamage || 0);
       if (counterDamage > 0) {
         const damageResult = applyDamage(state, state.resolution.attackerKey, counterDamage);
-        addLog(
-          state,
-          `${attacker.name} takes ${counterDamage} damage from ${defence.choice === "dodge" ? "a missed attack" : "a reversal"}.`
-        );
         logDamageThresholds(state, state.resolution.attackerKey, damageResult);
       }
 
       addLog(
         state,
-        `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately.`
+        `${defender.name} ${defence.choice === "dodge" ? "dodges" : "reverses"} ${state.resolution.card.name}. ${attacker.name}'s turn ends immediately. Counter-damage to ${attacker.name}: ${counterDamage}.`
       );
 
       finalizeAttackCard(state, `Defended by ${capitalize(defence.choice)}`);
