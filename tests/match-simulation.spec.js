@@ -113,6 +113,8 @@ function runSingleMatch(seed, cardLookup) {
       shuffleManeuverDeck: true
     }
   });
+  const startPlayerPin = Engine.getPinfallSummary(state.players.player);
+  const startEnemyPin = Engine.getPinfallSummary(state.players.enemy);
 
   let safety = 0;
   while (!state.match.over && safety < 5000) {
@@ -158,6 +160,8 @@ function runSingleMatch(seed, cardLookup) {
   const wk = state.match.winnerKey;
   const winnerPlayer = state.players[wk];
   const loserPlayer = state.players[state.match.loserKey];
+  const endPlayerPin = Engine.getPinfallSummary(state.players.player);
+  const endEnemyPin = Engine.getPinfallSummary(state.players.enemy);
 
   return {
     playerName: matchup.player.name,
@@ -170,8 +174,14 @@ function runSingleMatch(seed, cardLookup) {
     turns: state.turn?.number || 0,
     playerDamage: state.players.player.damage,
     enemyDamage: state.players.enemy.damage,
-    playerFail: Engine.getPinfallSummary(state.players.player).fail,
-    enemyFail: Engine.getPinfallSummary(state.players.enemy).fail
+    playerFail: endPlayerPin.fail,
+    enemyFail: endEnemyPin.fail,
+    playerKickout: endPlayerPin.kickout,
+    enemyKickout: endEnemyPin.kickout,
+    playerFailAccrued: endPlayerPin.fail - startPlayerPin.fail,
+    enemyFailAccrued: endEnemyPin.fail - startEnemyPin.fail,
+    playerKickoutAccrued: endPlayerPin.kickout - startPlayerPin.kickout,
+    enemyKickoutAccrued: endEnemyPin.kickout - startEnemyPin.kickout
   };
 }
 
@@ -200,6 +210,16 @@ function runSimulationReport() {
     totalEnemyDamage: 0,
     totalPlayerFail: 0,
     totalEnemyFail: 0,
+    totalPlayerKickout: 0,
+    totalEnemyKickout: 0,
+    totalPlayerFailAccrued: 0,
+    totalEnemyFailAccrued: 0,
+    totalPlayerKickoutAccrued: 0,
+    totalEnemyKickoutAccrued: 0,
+    maxCombinedFailAccrued: Number.NEGATIVE_INFINITY,
+    minCombinedFailAccrued: Number.POSITIVE_INFINITY,
+    maxCombinedKickoutAccrued: Number.NEGATIVE_INFINITY,
+    minCombinedKickoutAccrued: Number.POSITIVE_INFINITY,
     longest: { turns: 0, index: -1, reason: "" },
     shortest: { turns: Number.POSITIVE_INFINITY, index: -1, reason: "" },
     reasonCounts: {},
@@ -223,6 +243,12 @@ function runSimulationReport() {
     summary.totalEnemyDamage += result.enemyDamage;
     summary.totalPlayerFail += result.playerFail;
     summary.totalEnemyFail += result.enemyFail;
+    summary.totalPlayerKickout += result.playerKickout;
+    summary.totalEnemyKickout += result.enemyKickout;
+    summary.totalPlayerFailAccrued += result.playerFailAccrued;
+    summary.totalEnemyFailAccrued += result.enemyFailAccrued;
+    summary.totalPlayerKickoutAccrued += result.playerKickoutAccrued;
+    summary.totalEnemyKickoutAccrued += result.enemyKickoutAccrued;
 
     if (result.winnerKey === "player") {
       summary.playerWins += 1;
@@ -246,6 +272,13 @@ function runSimulationReport() {
     if (result.turns < summary.shortest.turns) {
       summary.shortest = { turns: result.turns, index: index + 1, reason: result.reason };
     }
+
+    const combinedFailAccrued = result.playerFailAccrued + result.enemyFailAccrued;
+    const combinedKickoutAccrued = result.playerKickoutAccrued + result.enemyKickoutAccrued;
+    summary.maxCombinedFailAccrued = Math.max(summary.maxCombinedFailAccrued, combinedFailAccrued);
+    summary.minCombinedFailAccrued = Math.min(summary.minCombinedFailAccrued, combinedFailAccrued);
+    summary.maxCombinedKickoutAccrued = Math.max(summary.maxCombinedKickoutAccrued, combinedKickoutAccrued);
+    summary.minCombinedKickoutAccrued = Math.min(summary.minCombinedKickoutAccrued, combinedKickoutAccrued);
   }
 
   const averageTurns = summary.totalTurns / summary.total;
@@ -253,6 +286,14 @@ function runSimulationReport() {
   const averageEnemyDamage = summary.totalEnemyDamage / summary.total;
   const averagePlayerFail = summary.totalPlayerFail / summary.total;
   const averageEnemyFail = summary.totalEnemyFail / summary.total;
+  const averagePlayerKickout = summary.totalPlayerKickout / summary.total;
+  const averageEnemyKickout = summary.totalEnemyKickout / summary.total;
+  const averagePlayerFailAccrued = summary.totalPlayerFailAccrued / summary.total;
+  const averageEnemyFailAccrued = summary.totalEnemyFailAccrued / summary.total;
+  const averagePlayerKickoutAccrued = summary.totalPlayerKickoutAccrued / summary.total;
+  const averageEnemyKickoutAccrued = summary.totalEnemyKickoutAccrued / summary.total;
+  summary.averageCombinedFailAccrued = averagePlayerFailAccrued + averageEnemyFailAccrued;
+  summary.averageCombinedKickoutAccrued = averagePlayerKickoutAccrued + averageEnemyKickoutAccrued;
   const sortedReasons = Object.entries(summary.reasonCounts).sort((a, b) => b[1] - a[1]);
   const sortedWrestlerWins = Object.entries(summary.wrestlerWins).sort((a, b) => b[1] - a[1]);
 
@@ -291,6 +332,21 @@ function runSimulationReport() {
   console.log(`Average turns per match: ${averageTurns.toFixed(2)}`);
   console.log(`Average end damage -> player: ${averagePlayerDamage.toFixed(2)}, enemy: ${averageEnemyDamage.toFixed(2)}`);
   console.log(`Average end fail cards -> player: ${averagePlayerFail.toFixed(2)}, enemy: ${averageEnemyFail.toFixed(2)}`);
+  console.log(`Average end kickout cards -> player: ${averagePlayerKickout.toFixed(2)}, enemy: ${averageEnemyKickout.toFixed(2)}`);
+  console.log("");
+  console.log("AI vs AI pinfall accrual per match (end - start):");
+  console.log(
+    `  Fail accrued avg -> player: ${averagePlayerFailAccrued.toFixed(2)}, enemy: ${averageEnemyFailAccrued.toFixed(2)}, combined: ${summary.averageCombinedFailAccrued.toFixed(2)}`
+  );
+  console.log(
+    `  Kickout accrued avg -> player: ${averagePlayerKickoutAccrued.toFixed(2)}, enemy: ${averageEnemyKickoutAccrued.toFixed(2)}, combined: ${summary.averageCombinedKickoutAccrued.toFixed(2)}`
+  );
+  console.log(
+    `  Combined fail accrued range per match: ${summary.minCombinedFailAccrued} .. ${summary.maxCombinedFailAccrued}`
+  );
+  console.log(
+    `  Combined kickout accrued range per match: ${summary.minCombinedKickoutAccrued} .. ${summary.maxCombinedKickoutAccrued}`
+  );
   console.log("");
   console.log("Turn length buckets:");
   Object.entries(summary.turnBuckets).forEach(([bucket, count]) => {
@@ -344,12 +400,30 @@ function runSimulationReport() {
   return summary;
 }
 
+let cachedSimulationSummary = null;
+function getSimulationSummary() {
+  if (!cachedSimulationSummary) {
+    cachedSimulationSummary = runSimulationReport();
+  }
+  return cachedSimulationSummary;
+}
+
 if (test && expect && require.main !== module) {
   test("simulates many matches and prints analysis log", () => {
     test.setTimeout(Math.min(900_000, Math.max(30_000, MATCH_SIMULATION_COUNT * 5 + 20_000)));
     expect(wrestlers.length).toBeGreaterThanOrEqual(2);
-    const summary = runSimulationReport();
+    const summary = getSimulationSummary();
     expect(summary.total).toBeGreaterThan(0);
+  });
+
+  test("simulates AI vs AI pinfall accrual (fail and kickout) per match", () => {
+    test.setTimeout(Math.min(900_000, Math.max(30_000, MATCH_SIMULATION_COUNT * 5 + 20_000)));
+    const summary = getSimulationSummary();
+    expect(summary.total).toBeGreaterThan(0);
+    expect(summary.averageCombinedFailAccrued).toBeGreaterThanOrEqual(0);
+    expect(summary.averageCombinedKickoutAccrued).toBeGreaterThanOrEqual(0);
+    expect(summary.maxCombinedFailAccrued).toBeGreaterThanOrEqual(summary.minCombinedFailAccrued);
+    expect(summary.maxCombinedKickoutAccrued).toBeGreaterThanOrEqual(summary.minCombinedKickoutAccrued);
   });
 }
 

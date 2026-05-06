@@ -1100,7 +1100,7 @@ function buildPlayerDefenceModel(state, isPin) {
       phase: isPin ? "Pin defence" : "Attack defence",
       buttons: [
         {
-          label: "Roll-Off",
+          label: "Resolve the Defence",
           tone: "action-button--primary",
           onClick: () => {
             Engine.callDefenceCoin(app.state);
