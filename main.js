@@ -35,7 +35,16 @@ const app = {
     lastHandledLogIndex: 0,
     lastShownRollOffId: 0,
     cardModalExpandTimer: null,
-    handInspectorView: null
+    handInspectorView: null,
+    handDrag: {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      dragged: false,
+      preview: null,
+      suppressClick: false
+    }
   },
   timers: new Set(),
   sync: {
@@ -907,6 +916,7 @@ function buildSequenceTrackSlot(model, activeSlot) {
   ]
     .filter(Boolean)
     .join(" ");
+  slot.dataset.slot = String(model.slot);
 
   const number = document.createElement("span");
   number.className = "sequence-track__number";
@@ -1017,7 +1027,7 @@ function buildActionModel(state) {
       phase: `Count ${state.pinAttempt.drawnCards.length} / ${state.rules.pinDrawCount}`,
       buttons: [
         {
-          label: "Draw Next Card",
+          label: "Draw Pin Card",
           tone: "action-button--primary",
           onClick: () => {
             Engine.drawNextPinfallCard(app.state);
@@ -1131,7 +1141,7 @@ function renderWrestlerPanel(state, wrestlerKey, panelDom) {
   const pinSummary = Engine.getPinfallSummary(wrestler);
   const pinChance = calculatePinChance(pinSummary.fail, pinSummary.total, state.rules.pinDrawCount);
 
-  panelDom.name.textContent = wrestler.name;
+  panelDom.name.textContent = wrestler.stunned ? `${wrestler.name} ⚡` : wrestler.name;
   panelDom.role.textContent = "";
   panelDom.role.hidden = true;
   panelDom.card.classList.toggle("wrestler-block--attacker", isAttacker);
@@ -1231,6 +1241,17 @@ function renderHand(currentApp) {
   }
 
   ordered.forEach((entry) => {
+    const slotText = getHandCardSlotLabel(entry.card);
+    const effectText = getHandCardEffectPreview(entry.card);
+    const damageRow =
+      entry.card.type === "attack"
+        ? `<span class="hand-card__damage-row" aria-label="Attack damage values">
+            <span class="hand-card__damage-dot" title="Attack">${Number(entry.card.damage || 0)}</span>
+            <span class="hand-card__damage-dot" title="Reversal">${Number(entry.card.reverseDamage || 0)}</span>
+            <span class="hand-card__damage-dot" title="Miss">${Number(entry.card.missDamage || 0)}</span>
+          </span>`
+        : "";
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = [
@@ -1243,16 +1264,164 @@ function renderHand(currentApp) {
       .filter(Boolean)
       .join(" ");
     button.dataset.handIndex = String(entry.handIndex);
+    if (effectText) {
+      button.dataset.tooltip = effectText;
+      button.setAttribute("aria-label", `${entry.card.name}: ${effectText}`);
+    } else {
+      button.removeAttribute("data-tooltip");
+      button.setAttribute("aria-label", entry.card.name);
+    }
     button.setAttribute("aria-disabled", entry.mode.clickable ? "false" : "true");
     button.innerHTML = `
       <div class="hand-card__front">
         <span class="hand-card__type hand-card__type--${entry.card.type}">${capitalize(entry.card.type)}</span>
         <span class="hand-card__title">${entry.card.name}</span>
+        <span class="hand-card__meta">
+          <span class="hand-card__badge">${slotText}</span>
+        </span>
+        ${damageRow}
       </div>
     `;
-    button.addEventListener("click", () => openCardModal(currentApp, entry));
+    button.addEventListener("pointerdown", (event) => startHandCardDrag(event, entry));
+    button.addEventListener("click", () => {
+      if (consumeHandDragSuppressClick()) {
+        return;
+      }
+      openCardModal(currentApp, entry);
+    });
     dom.handCards.appendChild(button);
   });
+}
+
+function startHandCardDrag(event, entry) {
+  if (!event.isPrimary || event.button !== 0) {
+    return;
+  }
+
+  const drag = app.ui.handDrag;
+  endHandCardDrag();
+  drag.active = true;
+  drag.pointerId = event.pointerId;
+  drag.startX = event.clientX;
+  drag.startY = event.clientY;
+  drag.dragged = false;
+  drag.suppressClick = false;
+  drag.card = entry.card;
+  drag.handIndex = entry.handIndex;
+  drag.mode = entry.mode;
+
+  window.addEventListener("pointermove", onHandCardDragMove);
+  window.addEventListener("pointerup", onHandCardDragEnd);
+  window.addEventListener("pointercancel", onHandCardDragEnd);
+}
+
+function onHandCardDragMove(event) {
+  const drag = app.ui.handDrag;
+  if (!drag.active || event.pointerId !== drag.pointerId) {
+    return;
+  }
+
+  const dx = event.clientX - drag.startX;
+  const dy = event.clientY - drag.startY;
+  if (!drag.dragged && Math.hypot(dx, dy) < 8) {
+    return;
+  }
+
+  if (!drag.preview) {
+    drag.preview = buildHandDragPreview(drag.card);
+    document.body.appendChild(drag.preview);
+  }
+
+  drag.dragged = true;
+  drag.suppressClick = true;
+  drag.preview.style.left = `${event.clientX}px`;
+  drag.preview.style.top = `${event.clientY}px`;
+}
+
+function onHandCardDragEnd(event) {
+  const drag = app.ui.handDrag;
+  if (!drag.active || event.pointerId !== drag.pointerId) {
+    return;
+  }
+
+  if (drag.dragged) {
+    maybePlayDraggedHandCard(event.clientX, event.clientY);
+  }
+  endHandCardDrag();
+}
+
+function endHandCardDrag() {
+  const drag = app.ui.handDrag;
+  window.removeEventListener("pointermove", onHandCardDragMove);
+  window.removeEventListener("pointerup", onHandCardDragEnd);
+  window.removeEventListener("pointercancel", onHandCardDragEnd);
+  drag.active = false;
+  drag.pointerId = null;
+  drag.startX = 0;
+  drag.startY = 0;
+  drag.card = null;
+  drag.handIndex = null;
+  drag.mode = null;
+  if (drag.preview) {
+    drag.preview.remove();
+    drag.preview = null;
+  }
+}
+
+function maybePlayDraggedHandCard(clientX, clientY) {
+  if (!app.state) {
+    return;
+  }
+  const drag = app.ui.handDrag;
+  if (!drag.mode?.clickable || !Number.isInteger(drag.handIndex)) {
+    return;
+  }
+  if (app.state.phase !== Engine.PHASES.CHOOSE_NEXT_ACTION || app.state.turn.attackerKey !== "player") {
+    return;
+  }
+
+  const slotNode = document.elementFromPoint(clientX, clientY)?.closest(".sequence-track__slot");
+  if (!slotNode) {
+    return;
+  }
+
+  const targetSlot = Number(slotNode.dataset.slot);
+  const nextSlot = Number(app.state.turn.nextSlot);
+  if (!Number.isInteger(targetSlot) || targetSlot !== nextSlot) {
+    return;
+  }
+
+  Engine.playOffensiveCard(app.state, drag.handIndex, "player");
+  refreshApp();
+}
+
+function consumeHandDragSuppressClick() {
+  const drag = app.ui.handDrag;
+  if (!drag.suppressClick) {
+    return false;
+  }
+
+  drag.suppressClick = false;
+  return true;
+}
+
+function buildHandDragPreview(card) {
+  const preview = document.createElement("div");
+  preview.className = "hand-drag-preview";
+  if (card?.image) {
+    const image = document.createElement("img");
+    image.className = "hand-drag-preview__image";
+    image.src = card.image;
+    image.alt = `${card.name} card art`;
+    image.draggable = false;
+    preview.appendChild(image);
+  } else {
+    const label = document.createElement("span");
+    label.className = "hand-drag-preview__label";
+    label.textContent = card?.name || "Card";
+    preview.appendChild(label);
+  }
+  return preview;
 }
 
 function getPlayerHandMode(state, card) {
@@ -1806,6 +1975,32 @@ function formatCardPrimaryLabel(card) {
 
 function getCardEffectText(card) {
   return String(card?.effect || "").trim();
+}
+
+function getHandCardEffectPreview(card) {
+  const authored = getCardEffectText(card);
+  if (authored) {
+    return authored.length > 80 ? `${authored.slice(0, 77)}...` : authored;
+  }
+
+  const fallback = describeCard(card);
+  return fallback.length > 80 ? `${fallback.slice(0, 77)}...` : fallback;
+}
+
+function getHandCardSlotLabel(card) {
+  if (Array.isArray(card.slotOptions) && card.slotOptions.length > 0) {
+    return card.slotOptions.join("/");
+  }
+
+  if (typeof card.validSlot === "number") {
+    return String(card.validSlot);
+  }
+
+  if (card.validSlot === "any") {
+    return "ANY";
+  }
+
+  return "DEF";
 }
 
 function describeCard(card) {
