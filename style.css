@@ -1054,7 +1054,7 @@ button[hidden],
 
 .hand-card__front {
   display: grid;
-  grid-template-rows: auto auto auto auto;
+  grid-template-rows: auto minmax(2.2em, 2.2em) auto auto;
   align-content: start;
   gap: 4px;
   height: auto;
@@ -1079,6 +1079,7 @@ button[hidden],
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: 2.2em;
 }
 
 .hand-card__meta {
@@ -1540,8 +1541,7 @@ button[hidden],
   color: var(--ink-soft);
 }
 
-.card-modal__type,
-.card-modal__effect {
+.card-modal__type {
   margin: 0;
 }
 
@@ -1617,12 +1617,6 @@ button[hidden],
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.card-modal__effect {
-  padding: 12px;
-  border-bottom: 1px solid rgba(255, 202, 74, 0.2);
   color: var(--ink-soft);
 }
 

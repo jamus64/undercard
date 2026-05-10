@@ -87,6 +87,11 @@ function pinfallDeck(cards) {
   return [...cards];
 }
 
+function defaultStartingPinfallDeck() {
+  const { STARTING_PIN_FAILS, STARTING_PIN_KICKOUTS } = Engine.constants;
+  return pinfallDeck([...Array(STARTING_PIN_FAILS).fill("Fail"), ...Array(STARTING_PIN_KICKOUTS).fill("Kickout")]);
+}
+
 function makeMatch(options = {}) {
   const playerDeck = options.playerDeck || deckFromOpeningHand([attack("p_atk_1", 1, 5)]);
   const enemyDeck = options.enemyDeck || deckFromOpeningHand([attack("e_atk_1", 1, 5)]);
@@ -100,9 +105,7 @@ function makeMatch(options = {}) {
       hand: options.playerHand || [],
       discardPile: options.playerDiscard || [],
       exhaustPile: options.playerExhaust || [],
-      pinfallDeck:
-        options.playerPinfallDeck ||
-        pinfallDeck(["Fail", "Fail", "Fail", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout"])
+      pinfallDeck: options.playerPinfallDeck || defaultStartingPinfallDeck()
     },
     enemy: {
       name: options.enemyName || "Enemy",
@@ -110,9 +113,7 @@ function makeMatch(options = {}) {
       hand: options.enemyHand || [],
       discardPile: options.enemyDiscard || [],
       exhaustPile: options.enemyExhaust || [],
-      pinfallDeck:
-        options.enemyPinfallDeck ||
-        pinfallDeck(["Fail", "Fail", "Fail", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout", "Kickout"])
+      pinfallDeck: options.enemyPinfallDeck || defaultStartingPinfallDeck()
     }
   });
 }
@@ -616,14 +617,16 @@ test("adds Fail cards immediately at 10, 20, and 30 damage", () => {
   expect(failCount(state, "enemy")).toBe(failStart + 3);
 });
 
-test("effect: clothesline on slot 1 applies defender disadvantage mode", () => {
+test("effect: clothesline on slot 1 applies attacker disadvantage on defence roll", () => {
   const state = makeMatch({
+    random: [0.05, 0.95, 0.5],
     playerDeck: sizedOpeningDeck(["clothesline"]),
     enemyDeck: dodgeOnlyDeck()
   });
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
-  expect(state.resolution.defence.coinMode).toBe("disadvantage");
+  Engine.callDefenceCoin(state, "Heads");
+  expect(state.lastDefenceRoll.attackerUsedDisadvantage).toBe(true);
 });
 
 test("effect: jab adds +1 damage to the next attack this turn", () => {
@@ -698,7 +701,7 @@ test("effect: german suplex adds Fail to defender on hit", () => {
   expect(failCount(state, "enemy")).toBe(start + 1);
 });
 
-test("effect: powerbomb adds Kickout to attacker on hit", () => {
+test("effect: powerbomb adds Fail to defender on hit", () => {
   const state = makeMatch({
     playerDeck: sizedOpeningDeck([
       anySlotAttack("slot1_pad"),
@@ -708,11 +711,12 @@ test("effect: powerbomb adds Kickout to attacker on hit", () => {
     enemyDeck: dodgeOnlyDeck()
   });
   state.players.enemy.hand = [];
-  const koStart = Engine.getPinfallSummary(state.players.player).kickout;
   Engine.playOffensiveCard(state, 0, "player");
   Engine.playOffensiveCard(state, 0, "player");
+  const failBeforePowerbomb = failCount(state, "enemy");
   Engine.playOffensiveCard(state, 0, "player");
-  expect(Engine.getPinfallSummary(state.players.player).kickout).toBe(koStart + 1);
+  // Slot-3 resolution adds 1 Fail from Powerbomb's effect plus 1 from completing a three-move combo.
+  expect(failCount(state, "enemy")).toBe(failBeforePowerbomb + 2);
 });
 
 test("effect: roar adds +2 damage to the next attack this turn", () => {
@@ -779,22 +783,22 @@ test("effect: wild swing defended stuns attacker (stun survives successful_defen
   expect(state.players.player.stunned).toBe(true);
 });
 
-test("effect: eye rake defended adds Fail to attacker", () => {
+test("effect: eye rake defended makes attacker discard", () => {
   const state = makeMatch({
-    random: [0.02, 0.95],
+    random: [...Array(45).fill(0.499), 0.02, 0.95],
     playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "eye_rake"]),
     enemyDeck: dodgeOnlyDeck()
   });
-  const startFails = failCount(state, "player");
   Engine.playOffensiveCard(state, 0, "player");
   Engine.chooseNoDefence(state);
   Engine.playOffensiveCard(state, 0, "player");
+  const handBeforeDefence = state.players.player.hand.length;
   Engine.prepareDefence(state, 0);
   Engine.callDefenceCoin(state, "Heads");
-  expect(failCount(state, "player")).toBe(startFails + 1);
+  expect(state.players.player.hand.length).toBe(handBeforeDefence - 1);
 });
 
-test("effect: ref distraction lets low blow ignore defended penalty once", () => {
+test("effect: ref distraction forces next heel defence roll to fail for defender", () => {
   const state = makeMatch({
     random: [0.05, 0.92],
     playerDeck: sizedOpeningDeck(["ref_distraction", "low_blow"]),
@@ -807,9 +811,10 @@ test("effect: ref distraction lets low blow ignore defended penalty once", () =>
   Engine.prepareDefence(state, 0);
   Engine.callDefenceCoin(state, "Heads");
   expect(failCount(state, "player")).toBe(failStart);
+  expect(state.players.enemy.stunned).toBe(true);
 });
 
-test("effect: low blow defended without ref bypass adds two Fails to attacker", () => {
+test("effect: low blow defended without ref bypass adds one Fail to attacker", () => {
   const state = makeMatch({
     random: [0.05, 0.92],
     playerDeck: sizedOpeningDeck([anySlotAttack("slot1_pad"), "low_blow"]),
@@ -821,10 +826,10 @@ test("effect: low blow defended without ref bypass adds two Fails to attacker", 
   Engine.playOffensiveCard(state, 0, "player");
   Engine.prepareDefence(state, 0);
   Engine.callDefenceCoin(state, "Heads");
-  expect(failCount(state, "player")).toBe(failStart + 2);
+  expect(failCount(state, "player")).toBe(failStart + 1);
 });
 
-test("effect: 450 splash on successful dodge discards two cards from attacker", () => {
+test("effect: 450 splash on successful dodge discards one card from attacker", () => {
   const state = makeMatch({
     random: [0.02, 0.95, 0.01, 0.01],
     playerDeck: sizedOpeningDeck([
@@ -842,7 +847,7 @@ test("effect: 450 splash on successful dodge discards two cards from attacker", 
   expect(state.players.player.hand).toHaveLength(3);
   Engine.prepareDefence(state, 0);
   Engine.callDefenceCoin(state, "Heads");
-  expect(state.players.player.hand).toHaveLength(1);
+  expect(state.players.player.hand).toHaveLength(2);
 });
 
 test("effect: stunned attacker grants defender advantage on defence rolls", () => {

@@ -85,7 +85,6 @@ const dom = {
   cardModalType: document.getElementById("card-modal-type"),
   cardModalTitle: document.getElementById("card-modal-title"),
   cardModalImage: document.getElementById("card-modal-image"),
-  cardModalEffect: document.getElementById("card-modal-effect"),
   cardModalAction: document.getElementById("card-modal-action"),
   pinModalTitle: document.getElementById("pin-modal-title"),
   pinModalStats: document.getElementById("pin-modal-stats"),
@@ -462,6 +461,8 @@ function startMatch(currentApp) {
     }
   });
 
+  currentApp.settings.rules = currentApp.state.rules;
+
   refreshApp();
 }
 
@@ -527,13 +528,18 @@ function maybeRunAiFlow() {
   }
 
   if (app.state.phase === Engine.PHASES.TURN_END) {
-    app.ui.pendingContinueAction = () => {
+    const continueTurn = () => {
       if (!app.state || app.state.match.over || app.state.phase !== Engine.PHASES.TURN_END) {
         return;
       }
       Engine.continueAfterTurnEnd(app.state);
       refreshApp();
     };
+    if (app.state.turn.attackerKey === "player") {
+      scheduleCall(app, 220, continueTurn);
+      return;
+    }
+    app.ui.pendingContinueAction = continueTurn;
     return;
   }
 
@@ -1124,7 +1130,7 @@ function buildPlayerDefenceModel(state, isPin) {
     phase: isPin ? "Pin defence" : "Attack defence",
     buttons: [
       {
-        label: isPin ? "No Defence" : "Take Hit",
+        label: isPin ? "Take Pin" : "Take Hit",
         tone: "action-button--take",
         onClick: () => {
           Engine.chooseNoDefence(app.state);
@@ -1376,6 +1382,25 @@ function maybePlayDraggedHandCard(clientX, clientY) {
   if (!drag.mode?.clickable || !Number.isInteger(drag.handIndex)) {
     return;
   }
+  if (
+    app.state.resolution?.defenderKey === "player" &&
+    app.state.resolution.awaitingDefenceChoice &&
+    Engine.DEFENSIVE_TYPES.has(drag.card?.type)
+  ) {
+    const slotNode = document.elementFromPoint(clientX, clientY)?.closest(".sequence-track__slot");
+    if (!slotNode) {
+      return;
+    }
+    const targetSlot = Number(slotNode.dataset.slot);
+    const defenceSlot = Number(app.state.resolution.slot);
+    if (!Number.isInteger(targetSlot) || targetSlot !== defenceSlot) {
+      return;
+    }
+    Engine.prepareDefence(app.state, drag.handIndex);
+    Engine.callDefenceCoin(app.state);
+    refreshApp();
+    return;
+  }
   if (app.state.phase !== Engine.PHASES.CHOOSE_NEXT_ACTION || app.state.turn.attackerKey !== "player") {
     return;
   }
@@ -1562,7 +1587,6 @@ function openCardModal(currentApp, entry) {
   renderCardModalImage(card);
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
-  dom.cardModalEffect.textContent = getCardEffectText(card);
 
   if (entry.mode.clickable) {
     dom.cardModalAction.hidden = false;
@@ -1604,7 +1628,6 @@ function openSequenceCardModal(card) {
   renderCardModalImage(card);
   dom.cardModalType.textContent = capitalize(card.type);
   dom.cardModalTitle.textContent = card.name;
-  dom.cardModalEffect.textContent = getCardEffectText(card);
   dom.cardModalAction.hidden = true;
   dom.cardModalAction.disabled = true;
   dom.cardModalAction.onclick = null;
@@ -1668,16 +1691,23 @@ function maybeShowRollOffModal(state) {
   dom.rollOffAttackerName.textContent = rollOff.attackerName;
   dom.rollOffAttackerRoll.textContent = "?";
   dom.rollOffDefenderName.textContent = rollOff.defenderName;
-  dom.rollOffDefenderRoll.textContent = "?";
+  dom.rollOffDefenderRoll.textContent =
+    Array.isArray(rollOff.defenderRolls) && rollOff.defenderRolls.length > 1 ? "? / ?" : "?";
   dom.rollOffResult.textContent = "Rolling...";
   dom.rollOffModal.hidden = false;
   syncModalState();
 
   clearRollOffAnimationTimers();
   animateRollOffValue(dom.rollOffAttackerRoll, rollOff.attackerRoll, 1050);
-  animateRollOffValue(dom.rollOffDefenderRoll, rollOff.defenderRoll, 1450, () => {
-    renderDefenderRollBreakdown(rollOff);
-  });
+  if (Array.isArray(rollOff.defenderRolls) && rollOff.defenderRolls.length > 1) {
+    animateRollOffPairValue(dom.rollOffDefenderRoll, rollOff.defenderRolls, 1450, () => {
+      renderDefenderRollBreakdown(rollOff);
+    });
+  } else {
+    animateRollOffValue(dom.rollOffDefenderRoll, rollOff.defenderRoll, 1450, () => {
+      renderDefenderRollBreakdown(rollOff);
+    });
+  }
   scheduleRollOffTimer(() => {
     const attackerWon = rollOff.winnerName === rollOff.attackerName;
     dom.rollOffAttackerCard?.classList.toggle("rolloff-modal__fighter--winner", attackerWon);
@@ -1885,6 +1915,30 @@ function animateRollOffValue(node, finalValue, totalDurationMs, onComplete) {
   tick();
 }
 
+function animateRollOffPairValue(node, finalRolls, totalDurationMs, onComplete) {
+  let elapsed = 0;
+
+  const tick = () => {
+    const progress = Math.min(elapsed / totalDurationMs, 1);
+    if (progress >= 1) {
+      if (onComplete) {
+        onComplete();
+      }
+      return;
+    }
+
+    const first = 1 + Math.floor(Math.random() * 20);
+    const second = 1 + Math.floor(Math.random() * 20);
+    node.innerHTML = buildRollPairMarkup(first, second, -1);
+    const delay = Math.round(26 + 180 * progress * progress);
+    elapsed += delay;
+    scheduleRollOffTimer(tick, delay);
+  };
+
+  node.innerHTML = buildRollPairMarkup(finalRolls[0], finalRolls[1], -1);
+  tick();
+}
+
 function renderDefenderRollBreakdown(rollOff) {
   if (!Array.isArray(rollOff.defenderRolls) || rollOff.defenderRolls.length <= 1) {
     dom.rollOffDefenderRoll.textContent = String(rollOff.defenderRoll);
@@ -1897,7 +1951,11 @@ function renderDefenderRollBreakdown(rollOff) {
     mutedIndex = firstRoll < secondRoll ? 0 : 1;
   }
 
-  dom.rollOffDefenderRoll.innerHTML = `
+  dom.rollOffDefenderRoll.innerHTML = buildRollPairMarkup(firstRoll, secondRoll, mutedIndex);
+}
+
+function buildRollPairMarkup(firstRoll, secondRoll, mutedIndex) {
+  return `
     <span class="rolloff-modal__roll-value ${mutedIndex === 0 ? "rolloff-modal__roll-value--muted" : ""}">${firstRoll}</span>
     <span class="rolloff-modal__roll-separator">/</span>
     <span class="rolloff-modal__roll-value ${mutedIndex === 1 ? "rolloff-modal__roll-value--muted" : ""}">${secondRoll}</span>

@@ -10,8 +10,13 @@
   const MAX_SEQUENCE_SLOTS = 3;
   const DAMAGE_PER_FAIL = 10;
   const PIN_DRAW_COUNT = 3;
-  const STARTING_PIN_FAILS = 3;
-  const STARTING_PIN_KICKOUTS = 7;
+  // Default deck tuned so P(all PIN_DRAW_COUNT draws are Fail before any Kickout) ≈ 75%
+  // at match start: product_{i=0}^{2} (F-i)/(N-i) with F=21, N=23 → ~75.1%.
+  const STARTING_PIN_FAILS = 21;
+  const STARTING_PIN_KICKOUTS = 2;
+  /** Saved sessions / debug settings may still request the old starter deck; remap so defaults stay in sync. */
+  const LEGACY_STARTING_PIN_FAILS = 3;
+  const LEGACY_STARTING_PIN_KICKOUTS = 7;
   const COIN_SIDES = ["Heads", "Tails"];
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
@@ -40,18 +45,32 @@
       {
         when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
         ifPlayingSlotIs: [1],
-        ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
+        ops: [{ type: "override_attacker_defence_roll_disadvantage" }]
       }
     ],
     spear: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
     chokeslam: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
     shooting_star_press: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
-    sweet_chin_music: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
+    super_kick: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] }],
     headbutt: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "self_damage", amount: 3 }] }],
     frog_splash: [
       {
         when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
         ifPreviousPlayedWasTaunt: true,
+        ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
+      }
+    ],
+    elbow_drop: [
+      {
+        when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
+        ifPreviousPlayedWasTaunt: true,
+        ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
+      }
+    ],
+    second_rope_elbow_drop: [
+      {
+        when: CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL,
+        ifPlayingSlotIs: [3],
         ops: [{ type: "override_defender_mode", mode: "disadvantage" }]
       }
     ],
@@ -65,11 +84,17 @@
       { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "set_player_stunned", target: "defender", value: true }] },
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
-        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 1 }]
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }] }]
       }
     ],
     chair_shot: [
-      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "queue_immediate_pin" }] },
+      {
+        when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
+        ops: [
+          { type: "set_player_stunned", target: "defender", value: true },
+          { type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }
+        ]
+      },
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
         ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 2 }]
@@ -79,31 +104,19 @@
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
         ops: [{ type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }]
-      },
-      {
-        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
-        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }] }]
       }
     ],
     ref_distraction: [
-      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "grant_heel_negative_ignore_next", attackerKey: true }] },
-      {
-        when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
-        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 1 }]
-      }
+      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "grant_next_heel_attack_defence_auto_win", attackerKey: true }] }
     ],
     low_blow: [
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
-        ops: [
-          { type: "set_player_stunned", target: "defender", value: true },
-          { type: "discard_random_from_hand", targets: [{ key: "defenderKey", count: 1 }] }
-        ]
+        ops: [{ type: "set_player_stunned", target: "defender", value: true }]
       },
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
-        skipFirstIfRefHeelBypass: true,
-        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 2 }]
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Fail", amount: 1 }]
       }
     ],
     _450_splash: [
@@ -111,7 +124,7 @@
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED,
         ifDefenseChoiceIs: ["dodge"],
-        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 2 }] }]
+        ops: [{ type: "discard_random_from_hand", targets: [{ key: "attackerKey", count: 1 }] }]
       }
     ],
     german_suplex: [
@@ -129,13 +142,13 @@
     bear_hug: [
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
-        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }]
       }
     ],
     powerbomb: [
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
-        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }]
+        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
       }
     ],
     jab: [
@@ -166,13 +179,19 @@
     armbar: [
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
-        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+        ops: [{ type: "add_pinfall_to", targetKey: "attackerKey", pinCard: "Kickout", amount: 1 }]
       }
     ],
     figure_four: [
       {
         when: CARD_EFFECT_TIMING.ON_ATTACK_HIT,
-        ops: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 3 }]
+        ops: [
+          {
+            type: "attacker_defender_roll_series",
+            rounds: 3,
+            attackerWinOps: [{ type: "add_pinfall_to", targetKey: "defenderKey", pinCard: "Fail", amount: 1 }]
+          }
+        ]
       }
     ],
     sharpshooter: [
@@ -184,9 +203,9 @@
         ]
       }
     ],
-    sleeper_hold: [
-      { when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "set_player_stunned", target: "defender", value: true }] }
-    ],
+    sleeper_hold: [],
+    body_blow: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "draw_cards", targets: [{ key: "attackerKey", count: 1 }] }] }],
+    chop: [{ when: CARD_EFFECT_TIMING.ON_ATTACK_HIT, ops: [{ type: "draw_cards", targets: [{ key: "attackerKey", count: 1 }] }] }],
     gun_show: [
       {
         when: CARD_EFFECT_TIMING.ON_TAUNT_RESOLVE,
@@ -266,6 +285,7 @@
 
   CARD_EFFECT_OPS_BY_ID["450_splash"] = CARD_EFFECT_OPS_BY_ID._450_splash;
   delete CARD_EFFECT_OPS_BY_ID._450_splash;
+  CARD_EFFECT_OPS_BY_ID.sweet_chin_music = CARD_EFFECT_OPS_BY_ID.super_kick;
 
   const PHASES = {
     MATCH_START: "match_start",
@@ -286,13 +306,20 @@
   };
 
   function buildRules(overrides) {
+    let startingPinFails = normalizeWholeNumber(overrides?.startingPinFails, STARTING_PIN_FAILS, 0);
+    let startingPinKickouts = normalizeWholeNumber(overrides?.startingPinKickouts, STARTING_PIN_KICKOUTS, 0);
+    if (startingPinFails === LEGACY_STARTING_PIN_FAILS && startingPinKickouts === LEGACY_STARTING_PIN_KICKOUTS) {
+      startingPinFails = STARTING_PIN_FAILS;
+      startingPinKickouts = STARTING_PIN_KICKOUTS;
+    }
+
     return {
       handSize: normalizeWholeNumber(overrides?.handSize, HAND_SIZE, 1),
       maxSequenceSlots: normalizeWholeNumber(overrides?.maxSequenceSlots, MAX_SEQUENCE_SLOTS, 1),
       damagePerFail: normalizeWholeNumber(overrides?.damagePerFail, DAMAGE_PER_FAIL, 1),
       pinDrawCount: normalizeWholeNumber(overrides?.pinDrawCount, PIN_DRAW_COUNT, 1),
-      startingPinFails: normalizeWholeNumber(overrides?.startingPinFails, STARTING_PIN_FAILS, 0),
-      startingPinKickouts: normalizeWholeNumber(overrides?.startingPinKickouts, STARTING_PIN_KICKOUTS, 0)
+      startingPinFails,
+      startingPinKickouts
     };
   }
 
@@ -474,7 +501,7 @@
       immediatePinQueued: false,
       effectBuff: {
         nextAttackDamageBonus: 0,
-        ignoreNextHeelDefendedPenalty: false,
+        nextHeelAttackDefenceAutoWin: false,
         slotLineBonus: null
       },
       slots: Array.from({ length: rules.maxSequenceSlots }, (_, index) => {
@@ -584,7 +611,7 @@
       effectBuff: turn.effectBuff
         ? {
             nextAttackDamageBonus: Number(turn.effectBuff.nextAttackDamageBonus || 0),
-            ignoreNextHeelDefendedPenalty: Boolean(turn.effectBuff.ignoreNextHeelDefendedPenalty),
+            nextHeelAttackDefenceAutoWin: Boolean(turn.effectBuff.nextHeelAttackDefenceAutoWin),
             slotLineBonus: turn.effectBuff.slotLineBonus
               ? {
                   slots: Array.isArray(turn.effectBuff.slotLineBonus.slots)
@@ -598,7 +625,7 @@
           }
         : {
             nextAttackDamageBonus: 0,
-            ignoreNextHeelDefendedPenalty: false,
+            nextHeelAttackDefenceAutoWin: false,
             slotLineBonus: null
           },
       slots: Array.isArray(turn.slots) ? turn.slots.map(serializeTurnSlot) : []
@@ -801,7 +828,7 @@
       effectBuff: turn.effectBuff
         ? {
             nextAttackDamageBonus: Number(turn.effectBuff.nextAttackDamageBonus || 0),
-            ignoreNextHeelDefendedPenalty: Boolean(turn.effectBuff.ignoreNextHeelDefendedPenalty),
+            nextHeelAttackDefenceAutoWin: Boolean(turn.effectBuff.nextHeelAttackDefenceAutoWin),
             slotLineBonus: turn.effectBuff.slotLineBonus
               ? {
                   slots: [...turn.effectBuff.slotLineBonus.slots],
@@ -813,7 +840,7 @@
           }
         : {
             nextAttackDamageBonus: 0,
-            ignoreNextHeelDefendedPenalty: false,
+            nextHeelAttackDefenceAutoWin: false,
             slotLineBonus: null
           },
       slots: Array.isArray(turn.slots) && turn.slots.length > 0
@@ -1192,8 +1219,14 @@
     let defenderRoll = 0;
     let defenderRolls = [];
 
+    const attackerUsesDisadvantage =
+      state.resolution.kind === "attack" && resolutionUsesAttackerDefenceRollDisadvantage(state, state.resolution);
+
     do {
       attackerRoll = rollD20(state);
+      if (attackerUsesDisadvantage) {
+        attackerRoll = Math.min(attackerRoll, rollD20(state));
+      }
       defenderRolls = Array.from({ length: rollCount }, () => rollD20(state));
       defenderRoll =
         defence.coinMode === "advantage"
@@ -1208,6 +1241,19 @@
     defence.attackerRoll = attackerRoll;
     defence.defenderRoll = defenderRoll;
     defence.success = defenderRoll > attackerRoll;
+
+    if (
+      state.turn.effectBuff.nextHeelAttackDefenceAutoWin &&
+      state.resolution.kind === "attack" &&
+      String(state.resolution.card.category || "") === "Heel"
+    ) {
+      state.turn.effectBuff.nextHeelAttackDefenceAutoWin = false;
+      defence.success = false;
+      addLog(
+        state,
+        `${getPlayer(state, attackerKey).name} cannot lose this defence roll (Ref Distraction).`
+      );
+    }
 
     updateSlotDefence(state, {
       actorKey: defence.actorKey,
@@ -1240,7 +1286,8 @@
       defenderRolls: defenderRolls.slice(),
       mode: defence.coinMode,
       defenceChoice: defence.choice,
-      winnerName: defence.success ? defender.name : attacker.name
+      winnerName: defence.success ? defender.name : attacker.name,
+      attackerUsedDisadvantage: attackerUsesDisadvantage
     };
 
     state.resolution.awaitingCoinCall = false;
@@ -2280,6 +2327,24 @@
     return override;
   }
 
+  function resolutionUsesAttackerDefenceRollDisadvantage(state, resolution) {
+    const card = resolution.card;
+    for (const rule of card.effectOps || []) {
+      if (rule.when !== CARD_EFFECT_TIMING.BEFORE_DEFENCE_ROLL) {
+        continue;
+      }
+      if (!effectRuleMatches(state, resolution, rule)) {
+        continue;
+      }
+      for (const op of rule.ops || []) {
+        if (op.type === "override_attacker_defence_roll_disadvantage") {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function getPreDamageBonuses(state, card, resolution) {
     let bonus = 0;
     for (const rule of card.effectOps || []) {
@@ -2476,9 +2541,12 @@
         );
         break;
       }
-      case "grant_heel_negative_ignore_next":
-        state.turn.effectBuff.ignoreNextHeelDefendedPenalty = true;
-        addLog(state, `${getPlayer(state, ctx.attackerKey).name} can ignore the next heel-style defended penalty.`);
+      case "grant_next_heel_attack_defence_auto_win":
+        state.turn.effectBuff.nextHeelAttackDefenceAutoWin = true;
+        addLog(
+          state,
+          `${getPlayer(state, ctx.attackerKey).name}'s next Heel attack this turn cannot lose the defence roll-off.`
+        );
         break;
       case "grant_slot_bonus_line":
         state.turn.effectBuff.slotLineBonus = {
@@ -2507,6 +2575,28 @@
         (branches || []).forEach((nested) => executeCardOp(state, ctx, nested));
         break;
       }
+      case "attacker_defender_roll_series": {
+        const rounds = Math.max(1, Number(op.rounds || 1));
+        const winOps = op.attackerWinOps || [];
+        const attacker = getPlayer(state, ctx.attackerKey);
+        const defender = getPlayer(state, ctx.defenderKey);
+        for (let index = 0; index < rounds; index += 1) {
+          let attackerRoll = rollD20(state);
+          let defenderRoll = rollD20(state);
+          while (attackerRoll === defenderRoll) {
+            attackerRoll = rollD20(state);
+            defenderRoll = rollD20(state);
+          }
+          addLog(
+            state,
+            `${attacker.name} rolls ${attackerRoll}. ${defender.name} rolls ${defenderRoll} (${ctx.resolution.card.name} roll-off ${index + 1}/${rounds}).`
+          );
+          if (attackerRoll > defenderRoll) {
+            winOps.forEach((nested) => executeCardOp(state, ctx, nested));
+          }
+        }
+        break;
+      }
       default:
         break;
     }
@@ -2521,16 +2611,6 @@
       }
       if (!effectRuleMatches(state, resolution, rule)) {
         continue;
-      }
-      if (timing === CARD_EFFECT_TIMING.ON_ATTACK_DEFENDED && rule.skipFirstIfRefHeelBypass) {
-        if (state.turn.effectBuff.ignoreNextHeelDefendedPenalty) {
-          state.turn.effectBuff.ignoreNextHeelDefendedPenalty = false;
-          addLog(
-            state,
-            `${getPlayer(state, ctx.attackerKey).name} ignores a heel defended penalty (Ref-style protection).`
-          );
-          continue;
-        }
       }
       (rule.ops || []).forEach((op) => executeCardOp(state, ctx, op));
     }
@@ -2819,48 +2899,6 @@
     }
 
     state.log.push(message);
-    state.log.push(`LOG_STATE ${JSON.stringify(buildLogStateSnapshot(state, message))}`);
-  }
-
-  function buildLogStateSnapshot(state, message) {
-    return {
-      event: message,
-      phase: state.phase,
-      turn: state.turn ? state.turn.number : null,
-      rules: buildRules(state.rules),
-      wrestlers: {
-        player: buildWrestlerLogState(state.players.player),
-        enemy: buildWrestlerLogState(state.players.enemy)
-      }
-    };
-  }
-
-  function buildWrestlerLogState(player) {
-    const summary = summarizePinfallDeck(player.pinfallDeck);
-    return {
-      name: player.name,
-      hand: player.hand.map((card) => card.name),
-      pinfall: {
-        fail: summary.fail,
-        kickout: summary.kickout,
-        total: player.pinfallDeck.length
-      }
-    };
-  }
-
-  function summarizePinfallDeck(pinfallDeck) {
-    return pinfallDeck.reduce(
-      (accumulator, entry) => {
-        const value = String(entry || "").toLowerCase();
-        if (value.startsWith("fail")) {
-          accumulator.fail += 1;
-        } else if (value.startsWith("kickout")) {
-          accumulator.kickout += 1;
-        }
-        return accumulator;
-      },
-      { fail: 0, kickout: 0 }
-    );
   }
 
   function shuffleArray(items, random) {

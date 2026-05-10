@@ -13,9 +13,11 @@
     maxSequenceSlots: 3,
     damagePerFail: 10,
     pinDrawCount: 3,
-    startingPinFails: 3,
-    startingPinKickouts: 7
+    startingPinFails: 21,
+    startingPinKickouts: 2
   });
+  const LEGACY_STARTING_PIN_FAILS = 3;
+  const LEGACY_STARTING_PIN_KICKOUTS = 7;
   const RARITY_LIMIT_DEFAULTS = Object.freeze({
     common: 4,
     uncommon: 3,
@@ -55,13 +57,20 @@
   }
 
   function normalizeRules(rules) {
+    let startingPinFails = normalizeWholeNumber(rules?.startingPinFails, RULE_DEFAULTS.startingPinFails, 0);
+    let startingPinKickouts = normalizeWholeNumber(rules?.startingPinKickouts, RULE_DEFAULTS.startingPinKickouts, 0);
+    if (startingPinFails === LEGACY_STARTING_PIN_FAILS && startingPinKickouts === LEGACY_STARTING_PIN_KICKOUTS) {
+      startingPinFails = RULE_DEFAULTS.startingPinFails;
+      startingPinKickouts = RULE_DEFAULTS.startingPinKickouts;
+    }
+
     return {
       handSize: normalizeWholeNumber(rules?.handSize, RULE_DEFAULTS.handSize, 1),
       maxSequenceSlots: normalizeWholeNumber(rules?.maxSequenceSlots, RULE_DEFAULTS.maxSequenceSlots, 1),
       damagePerFail: normalizeWholeNumber(rules?.damagePerFail, RULE_DEFAULTS.damagePerFail, 1),
       pinDrawCount: normalizeWholeNumber(rules?.pinDrawCount, RULE_DEFAULTS.pinDrawCount, 1),
-      startingPinFails: normalizeWholeNumber(rules?.startingPinFails, RULE_DEFAULTS.startingPinFails, 0),
-      startingPinKickouts: normalizeWholeNumber(rules?.startingPinKickouts, RULE_DEFAULTS.startingPinKickouts, 0)
+      startingPinFails,
+      startingPinKickouts
     };
   }
 

@@ -2,24 +2,24 @@
   {
     "id": "clothesline",
     "name": "Clothesline",
-    "image": "assets/Card Assets/Clothesline (1).png",
+    "image": "assets/Attack Assets/Clothesline (2).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
-    "damage": 3,
+    "damage": 4,
     "afterUse": "discard",
     "csvSlot": "1/3",
-    "reverseDamage": 5,
+    "reverseDamage": 4,
     "missDamage": 1,
     "stun": "",
     "raritySymbol": "\u25cf",
     "category": "Brawler",
-    "effect": "When played in Slot 1, defender has Disadvantage."
+    "effect": "When played in Slot 1, attacker has Disadvantage."
   },
   {
     "id": "spear",
     "name": "Spear",
-    "image": "assets/Card Assets/SP - Spear.png",
+    "image": "assets/Attack Assets/Spear.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 1,
@@ -36,7 +36,7 @@
   {
     "id": "big_boot",
     "name": "Big Boot",
-    "image": "assets/Card Assets/Big Boot (1).png",
+    "image": "assets/Attack Assets/Big Boot (3).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -53,7 +53,7 @@
   {
     "id": "headbutt",
     "name": "Headbutt",
-    "image": "assets/Card Assets/Headbutt.png",
+    "image": "assets/Attack Assets/Headbutt (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -70,11 +70,11 @@
   {
     "id": "wild_swing",
     "name": "Wild Swing",
-    "image": "assets/Card Assets/Wild Swing.png",
+    "image": "assets/Attack Assets/Wild Swing (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 1,
-    "damage": 4,
+    "damage": 5,
     "afterUse": "discard",
     "csvSlot": "1/2/3",
     "reverseDamage": 4,
@@ -87,7 +87,7 @@
   {
     "id": "eye_rake",
     "name": "Eye Rake",
-    "image": "assets/Card Assets/Eye Rake.png",
+    "image": "assets/Attack Assets/Eye Rake (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -99,29 +99,29 @@
     "stun": "Y",
     "raritySymbol": "\u25cf",
     "category": "Heel",
-    "effect": "On success, apply Stun. On fail, add 1 Fail to own deck."
+    "effect": "Roll off against opponent: On win apply Stun to opponent. On lose, attacker discards 1 card at random."
   },
   {
     "id": "chair_shot",
     "name": "Chair Shot",
-    "image": "assets/Card Assets/SP - Chair Shot.png",
+    "image": "assets/Attack Assets/Chair Shot.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
     "damage": 9,
     "afterUse": "discard",
     "csvSlot": "3",
-    "reverseDamage": 5,
+    "reverseDamage": 2,
     "missDamage": 2,
     "stun": "Y",
     "raritySymbol": "\u274b",
     "category": "Heel",
-    "effect": "On success, immediately Pin. On fail, add 2 Fails to own deck."
+    "effect": "Roll off against opponent: On win apply stun to opponent and add 1 Kickout card to your Pinfall deck. On lose, attacker adds 2 Fails to their Pinfall deck."
   },
   {
     "id": "cheap_shot",
     "name": "Cheap Shot",
-    "image": "assets/Card Assets/Cheap Shot.png",
+    "image": "assets/Attack Assets/Cheap Shot (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -130,17 +130,17 @@
     "csvSlot": "1/2",
     "reverseDamage": 4,
     "missDamage": 3,
-    "stun": "Y",
+    "stun": "",
     "raritySymbol": "\u25c6",
     "category": "Heel",
-    "effect": "On success, opponent discards 1 at random. On fail, attacker discards 1 at random."
+    "effect": "On success, defender discards a card."
   },
   {
     "id": "ref_distraction",
     "name": "Ref Distraction",
-    "image": "assets/Card Assets/Complain to Referee.png",
+    "image": "assets/Attack Assets/Ref Distraction.png",
     "type": "attack",
-    "rarity": "uncommon",
+    "rarity": "common",
     "validSlot": 1,
     "damage": 0,
     "afterUse": "discard",
@@ -148,18 +148,18 @@
     "reverseDamage": 0,
     "missDamage": 0,
     "stun": "",
-    "raritySymbol": "\u25c6",
+    "raritySymbol": "\u25cf",
     "category": "Heel",
-    "effect": "The next Heel move you play this turn ignores its negative fail effect. On fail, add 1 Fail to your own Pinfall deck."
+    "effect": "The next Heel move you play this turn, you cannot lose the roll off."
   },
   {
     "id": "low_blow",
     "name": "Low Blow",
-    "image": "assets/Card Assets/Low Blow.png",
+    "image": "assets/Attack Assets/Low Blow (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 2,
-    "damage": 4,
+    "damage": 7,
     "afterUse": "discard",
     "csvSlot": "2/3",
     "reverseDamage": 2,
@@ -167,12 +167,12 @@
     "stun": "Y",
     "raritySymbol": "\u2605",
     "category": "Heel",
-    "effect": "On success, Stun + opponent discards 1. On fail, add 2 Fails to own deck."
+    "effect": "Roll off against opponent: On win apply Stun to opponent. On lose, attacker adds 1 Fail to their Pinfall deck."
   },
   {
     "id": "hurricanrana",
     "name": "Hurricanrana",
-    "image": "assets/Card Assets/Hurricanrana.png",
+    "image": "assets/Attack Assets/Hurricanrana (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 1,
@@ -189,7 +189,7 @@
   {
     "id": "450_splash",
     "name": "450 Splash",
-    "image": "assets/Card Assets/450 Splash.png",
+    "image": "assets/Attack Assets/450 Splash (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -201,12 +201,12 @@
     "stun": "",
     "raritySymbol": "\u2605",
     "category": "High-Flyer",
-    "effect": "On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard 2 at random."
+    "effect": "On success, opponent adds 1 Fail to their Pinfall deck. If Dodged, discard a card at random."
   },
   {
     "id": "shooting_star_press",
     "name": "Shooting Star Press",
-    "image": "assets/Card Assets/Shooting Star Press (1).png",
+    "image": "assets/Attack Assets/Shooting Star Press (2).png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -223,7 +223,7 @@
   {
     "id": "elbow_drop",
     "name": "Elbow Drop",
-    "image": "assets/Card Assets/Elbow Drop (1).png",
+    "image": "assets/Attack Assets/Elbow Drop (2).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -235,12 +235,12 @@
     "stun": "",
     "raritySymbol": "\u25c6",
     "category": "High-Flyer",
-    "effect": ""
+    "effect": "If played after a Taunt, defender has Disadvantage."
   },
   {
     "id": "frog_splash",
     "name": "Frog Splash",
-    "image": "assets/Card Assets/Frog Splash.png",
+    "image": "assets/Attack Assets/Frog Splash (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -257,7 +257,7 @@
   {
     "id": "second_rope_elbow_drop",
     "name": "Second Rope Elbow Drop",
-    "image": "assets/Card Assets/Second Rope Elbow Drop.png",
+    "image": "assets/Attack Assets/Second Rope Elbow Drop (2).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 2,
@@ -269,12 +269,12 @@
     "stun": "",
     "raritySymbol": "\u2605",
     "category": "High-Flyer",
-    "effect": ""
+    "effect": "When played in Slot 3, defender has Disadvantage."
   },
   {
     "id": "german_suplex",
     "name": "German Suplex",
-    "image": "assets/Card Assets/German Suplex.png",
+    "image": "assets/Attack Assets/German Suplex (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -291,7 +291,7 @@
   {
     "id": "suplex",
     "name": "Suplex",
-    "image": "assets/Card Assets/Suplex (1).png",
+    "image": "assets/Attack Assets/Suplex (2).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 2,
@@ -308,24 +308,24 @@
   {
     "id": "bear_hug",
     "name": "Bear Hug",
-    "image": "assets/Card Assets/Hip Toss.png",
+    "image": "assets/Attack Assets/Bear Hug.png",
     "type": "attack",
-    "rarity": "common",
+    "rarity": "rare",
     "validSlot": 2,
     "damage": 3,
     "afterUse": "discard",
     "csvSlot": "2",
     "reverseDamage": 2,
     "missDamage": 2,
-    "stun": "Y",
-    "raritySymbol": "\u25cf",
+    "stun": "",
+    "raritySymbol": "\u2605",
     "category": "Power",
-    "effect": "Submission. On success, add 1 Fail to opponent\u2019s Pinfall deck."
+    "effect": "Roll off against opponent: On win, add 1 Kickout! to your Pinfall deck."
   },
   {
     "id": "chokeslam",
     "name": "Chokeslam",
-    "image": "assets/Card Assets/SP - Chokeslam.png",
+    "image": "assets/Attack Assets/Chokeslam (1).png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -342,7 +342,7 @@
   {
     "id": "powerbomb",
     "name": "Powerbomb",
-    "image": "assets/Card Assets/Powerbomb (1).png",
+    "image": "assets/Attack Assets/Powerbomb (2).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -351,17 +351,17 @@
     "csvSlot": "3",
     "reverseDamage": 6,
     "missDamage": 6,
-    "stun": "Y",
+    "stun": "",
     "raritySymbol": "\u2605",
     "category": "Power",
-    "effect": "On success, add 1 Kickout! to your Pinfall deck."
+    "effect": "On success, add 1 Fail to opponent\u2019s Pinfall deck."
   },
   {
     "id": "spinebuster",
     "name": "Spinebuster",
-    "image": "assets/Card Assets/Spinebuster.png",
+    "image": "assets/Attack Assets/Spinebuster (1).png",
     "type": "attack",
-    "rarity": "uncommon",
+    "rarity": "common",
     "validSlot": 2,
     "damage": 6,
     "afterUse": "discard",
@@ -369,14 +369,14 @@
     "reverseDamage": 5,
     "missDamage": 3,
     "stun": "",
-    "raritySymbol": "\u25c6",
+    "raritySymbol": "\u25cf",
     "category": "Power",
     "effect": ""
   },
   {
     "id": "chop",
     "name": "Chop",
-    "image": "assets/Card Assets/Chop (1).png",
+    "image": "assets/Attack Assets/Chop (2).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -388,12 +388,12 @@
     "stun": "",
     "raritySymbol": "\u25cf",
     "category": "Striker",
-    "effect": ""
+    "effect": "Draw a maneuver card."
   },
   {
     "id": "jab",
     "name": "Jab",
-    "image": "assets/Card Assets/Jab (1).png",
+    "image": "assets/Attack Assets/Jab (2).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -408,9 +408,9 @@
     "effect": "Next Attack this turn gains +1 ATK."
   },
   {
-    "id": "sweet_chin_music",
-    "name": "Sweet Chin Music",
-    "image": "assets/Card Assets/Leg Kick.png",
+    "id": "super_kick",
+    "name": "Super Kick",
+    "image": "assets/Attack Assets/Super Kick.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
@@ -418,7 +418,7 @@
     "afterUse": "discard",
     "csvSlot": "3",
     "reverseDamage": 5,
-    "missDamage": 7,
+    "missDamage": 6,
     "stun": "",
     "raritySymbol": "\u274b",
     "category": "Striker",
@@ -427,7 +427,7 @@
   {
     "id": "body_blow",
     "name": "Body Blow",
-    "image": "assets/Card Assets/Body Blow.png",
+    "image": "assets/Attack Assets/Body Blow (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -439,12 +439,12 @@
     "stun": "",
     "raritySymbol": "\u25cf",
     "category": "Striker",
-    "effect": ""
+    "effect": "Draw a maneuver card."
   },
   {
     "id": "dropkick",
     "name": "Dropkick",
-    "image": "assets/Card Assets/Dropkick (1).png",
+    "image": "assets/Attack Assets/Dropkick (2).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -461,7 +461,7 @@
   {
     "id": "trip",
     "name": "Trip",
-    "image": "assets/Card Assets/Trip.png",
+    "image": "assets/Attack Assets/Trip (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 1,
@@ -478,7 +478,7 @@
   {
     "id": "armbar",
     "name": "Armbar",
-    "image": "assets/Card Assets/Armbar.png",
+    "image": "assets/Attack Assets/Armbar (1).png",
     "type": "attack",
     "rarity": "uncommon",
     "validSlot": 2,
@@ -490,29 +490,29 @@
     "stun": "",
     "raritySymbol": "\u25c6",
     "category": "Technical",
-    "effect": "On success, add 1 Fail to opponent\u2019s Pinfall deck."
+    "effect": "Roll off against opponent: On win, add 1 Kickout! to your Pinfall deck."
   },
   {
     "id": "figure_four",
-    "name": "Figure Four",
-    "image": "assets/Card Assets/Sharpshooter.png",
+    "name": "Figure Four Leg Lock",
+    "image": "assets/Attack Assets/Figure Four Leg Lock.png",
     "type": "attack",
     "rarity": "special",
     "validSlot": 3,
     "damage": 6,
     "afterUse": "discard",
     "csvSlot": "3",
-    "reverseDamage": 4,
-    "missDamage": 2,
+    "reverseDamage": 8,
+    "missDamage": 3,
     "stun": "Y",
     "raritySymbol": "\u274b",
     "category": "Technical",
-    "effect": "On success, add 3 Fails to opponent\u2019s Pinfall deck."
+    "effect": "Roll off against opponent 3 times \u2014 add a Fail card to the defender\u2019s Pinfall deck for each win for the attacker."
   },
   {
     "id": "sharpshooter",
     "name": "Sharpshooter",
-    "image": "assets/Card Assets/Sharpshooter.png",
+    "image": "assets/Attack Assets/Sharpshooter (1).png",
     "type": "attack",
     "rarity": "rare",
     "validSlot": 3,
@@ -524,12 +524,12 @@
     "stun": "Y",
     "raritySymbol": "\u2605",
     "category": "Technical",
-    "effect": "On success, Stun + opponent discards 1."
+    "effect": "Roll off against opponent: On win, Stun + opponent discards 1."
   },
   {
     "id": "irish_whip",
     "name": "Irish Whip",
-    "image": "assets/Card Assets/Irish Whip (1).png",
+    "image": "assets/Attack Assets/Irish Whip (2).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 1,
@@ -546,7 +546,7 @@
   {
     "id": "sleeper_hold",
     "name": "Sleeper Hold",
-    "image": "assets/Card Assets/Sleeper Hold.png",
+    "image": "assets/Attack Assets/Sleeper Hold (1).png",
     "type": "attack",
     "rarity": "common",
     "validSlot": 2,
@@ -555,10 +555,10 @@
     "csvSlot": "2/3",
     "reverseDamage": 2,
     "missDamage": 0,
-    "stun": "Y",
+    "stun": "",
     "raritySymbol": "\u25cf",
     "category": "Technical",
-    "effect": "On success, apply Stun."
+    "effect": ""
   },
   {
     "id": "gun_show",

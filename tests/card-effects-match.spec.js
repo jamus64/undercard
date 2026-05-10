@@ -3,6 +3,11 @@ const Engine = require("../game-engine");
 const CARD_POOL = require("../data/card-pool.json");
 
 const CARD_BY_ID = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
+// Explicit deck skips shuffle RNG in createMatch (matches engine default starting composition).
+const FIXED_PINFALL_DECK = [
+  ...Array(Engine.constants.STARTING_PIN_FAILS).fill("Fail"),
+  ...Array(Engine.constants.STARTING_PIN_KICKOUTS).fill("Kickout")
+];
 const EFFECT_CARD_IDS = CARD_POOL.filter((card) => String(card.effect || "").trim())
   .map((card) => card.id)
   .sort();
@@ -99,30 +104,57 @@ const verifyByCardId = {
     forceNoDefence(state);
     expect(state.players.player.maneuverDeck.length).toBe(deckStart - 1);
   },
-  armbar: () => {
-    const state = makeState({ playerHandIds: ["armbar"] });
-    const start = failCount(state, "enemy");
+  body_blow: () => {
+    const state = makeState({ playerHandIds: ["body_blow"], nextSlot: 1 });
+    const deckStart = state.players.player.maneuverDeck.length;
     playPlayerCard(state, 0);
     forceNoDefence(state);
-    expect(failCount(state, "enemy")).toBe(start + 1);
+    expect(state.players.player.maneuverDeck.length).toBe(deckStart - 1);
+  },
+  chop: () => {
+    const state = makeState({ playerHandIds: ["chop"], nextSlot: 1 });
+    const deckStart = state.players.player.maneuverDeck.length;
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
+    expect(state.players.player.maneuverDeck.length).toBe(deckStart - 1);
+  },
+  armbar: () => {
+    const state = makeState({ playerHandIds: ["armbar"] });
+    const koStart = kickoutCount(state, "player");
+    const failStart = failCount(state, "enemy");
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
+    expect(kickoutCount(state, "player")).toBe(koStart + 1);
+    expect(failCount(state, "enemy")).toBe(failStart);
   },
   bear_hug: () => {
     const state = makeState({ playerHandIds: ["bear_hug"] });
-    const start = failCount(state, "enemy");
+    const koStart = kickoutCount(state, "player");
+    const failStart = failCount(state, "enemy");
     playPlayerCard(state, 0);
     forceNoDefence(state);
-    expect(failCount(state, "enemy")).toBe(start + 1);
+    expect(kickoutCount(state, "player")).toBe(koStart + 1);
+    expect(failCount(state, "enemy")).toBe(failStart);
   },
   chair_shot: () => {
     const state = makeState({
-      random: [0.1, 0.75],
+      random: [...Array(45).fill(0.499), 0.1, 0.75],
       playerHandIds: ["chair_shot"],
       enemyHandIds: ["dodge"]
     });
-    const start = failCount(state, "player");
+    const startFails = failCount(state, "player");
     playPlayerCard(state, 0);
     forceDodgeSuccess(state, 0);
-    expect(failCount(state, "player")).toBe(start + 2);
+    expect(failCount(state, "player")).toBe(startFails + 2);
+
+    const state2 = makeState({ playerHandIds: ["chair_shot"], enemyPinfallDeck: ["Fail", "Fail", "Kickout"] });
+    const koBefore = kickoutCount(state2, "player");
+    state2.players.enemy.hand = [];
+    playPlayerCard(state2, 0);
+    forceNoDefence(state2);
+    expect(state2.players.enemy.stunned).toBeTruthy();
+    expect(kickoutCount(state2, "player")).toBe(koBefore + 1);
+    expect(state2.phase).not.toBe(Engine.PHASES.PINFALL_DRAW);
   },
   cheap_shot: () => {
     const state = makeState({ playerHandIds: ["cheap_shot"], enemyHandIds: ["jab", "suplex"] });
@@ -140,10 +172,16 @@ const verifyByCardId = {
     expect(state.pinAttempt).not.toBeNull();
   },
   clothesline: () => {
-    const state = makeState({ playerHandIds: ["clothesline"], enemyHandIds: ["dodge"] });
+    const state = makeState({
+      random: [...Array(45).fill(0.499), 0.05, 0.95, 0.55],
+      playerHandIds: ["clothesline"],
+      enemyHandIds: ["dodge"]
+    });
     playPlayerCard(state, 0);
     Engine.prepareDefence(state, 0);
-    expect(state.resolution.defence.coinMode).toBe("disadvantage");
+    expect(state.resolution.defence.coinMode).toBe("normal");
+    Engine.callDefenceCoin(state, "Heads");
+    expect(state.lastDefenceRoll.attackerUsedDisadvantage).toBe(true);
   },
   complain_to_ref: () => {
     const state = makeState({
@@ -173,10 +211,13 @@ const verifyByCardId = {
   },
   figure_four: () => {
     const state = makeState({ playerHandIds: ["figure_four"], nextSlot: 3 });
-    const start = failCount(state, "enemy");
+    const failBefore = failCount(state, "enemy");
     playPlayerCard(state, 0);
     forceNoDefence(state);
-    expect(failCount(state, "enemy")).toBe(start + 3);
+    expect(state.log.filter((entry) => entry.includes("roll-off")).length).toBe(3);
+    const gained = failCount(state, "enemy") - failBefore;
+    expect(gained).toBeGreaterThanOrEqual(0);
+    expect(gained).toBeLessThanOrEqual(3);
   },
   frog_splash: () => {
     const state = makeState({
@@ -184,6 +225,32 @@ const verifyByCardId = {
       enemyHandIds: ["dodge"],
       nextSlot: 1
     });
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
+    playPlayerCard(state, 0);
+    Engine.prepareDefence(state, 0);
+    expect(state.resolution.defence.coinMode).toBe("disadvantage");
+  },
+  elbow_drop: () => {
+    const state = makeState({
+      playerHandIds: ["shush", "elbow_drop"],
+      enemyHandIds: ["dodge"],
+      nextSlot: 1
+    });
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
+    playPlayerCard(state, 0);
+    Engine.prepareDefence(state, 0);
+    expect(state.resolution.defence.coinMode).toBe("disadvantage");
+  },
+  second_rope_elbow_drop: () => {
+    const state = makeState({
+      playerHandIds: ["irish_whip", "irish_whip", "second_rope_elbow_drop"],
+      enemyHandIds: ["dodge"],
+      nextSlot: 1
+    });
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
     playPlayerCard(state, 0);
     forceNoDefence(state);
     playPlayerCard(state, 0);
@@ -280,14 +347,14 @@ const verifyByCardId = {
     playPlayerCard(state, 0);
     forceNoDefence(state);
     expect(state.players.enemy.stunned).toBeTruthy();
-    expect(state.players.enemy.hand.length).toBe(enemyStart - 1);
+    expect(state.players.enemy.hand.length).toBe(enemyStart);
   },
   powerbomb: () => {
     const state = makeState({ playerHandIds: ["powerbomb"], nextSlot: 3 });
-    const start = kickoutCount(state, "player");
+    const start = failCount(state, "enemy");
     playPlayerCard(state, 0);
     forceNoDefence(state);
-    expect(kickoutCount(state, "player")).toBe(start + 1);
+    expect(failCount(state, "enemy")).toBe(start + 1);
   },
   ref_distraction: () => {
     const state = makeState({
@@ -299,11 +366,11 @@ const verifyByCardId = {
     const failStart = failCount(state, "player");
     playPlayerCard(state, 0);
     Engine.chooseNoDefence(state);
-    // Re-add a defence option for the second attack to force a defended outcome.
     state.players.enemy.hand.push(cardClone("dodge", "enemy_readd"));
     playPlayerCard(state, 0);
     forceDodgeSuccess(state, 0);
     expect(failCount(state, "player")).toBe(failStart);
+    expect(state.players.enemy.stunned).toBeTruthy();
   },
   roar: () => {
     const state = makeState({ playerHandIds: ["roar", "suplex"], nextSlot: 2 });
@@ -341,7 +408,7 @@ const verifyByCardId = {
     const state = makeState({ playerHandIds: ["sleeper_hold"], nextSlot: 2 });
     playPlayerCard(state, 0);
     forceNoDefence(state);
-    expect(state.players.enemy.stunned).toBeTruthy();
+    expect(state.players.enemy.stunned).toBeFalsy();
   },
   spear: () => {
     const state = makeState({ playerHandIds: ["spear"], nextSlot: 1 });
@@ -365,8 +432,8 @@ const verifyByCardId = {
     forceNoDefence(state);
     expect(failCount(state, "enemy")).toBe(start + 1);
   },
-  sweet_chin_music: () => {
-    const state = makeState({ playerHandIds: ["sweet_chin_music"], nextSlot: 3 });
+  super_kick: () => {
+    const state = makeState({ playerHandIds: ["super_kick"], nextSlot: 3 });
     state.players.enemy.hand = [];
     playPlayerCard(state, 0);
     forceNoDefence(state);
@@ -382,11 +449,15 @@ const verifyByCardId = {
   },
   wild_swing: () => {
     const state = makeState({
-      random: [0.1, 0.75],
-      playerHandIds: ["wild_swing"],
+      random: [0.02, 0.95],
+      playerHandIds: ["irish_whip", "wild_swing"],
       enemyHandIds: ["dodge"],
+      playerPinfallDeck: [...FIXED_PINFALL_DECK],
+      enemyPinfallDeck: [...FIXED_PINFALL_DECK],
       nextSlot: 1
     });
+    playPlayerCard(state, 0);
+    forceNoDefence(state);
     playPlayerCard(state, 0);
     forceDodgeSuccess(state, 0);
     expect(state.players.player.stunned).toBeTruthy();
