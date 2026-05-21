@@ -7,7 +7,9 @@
     "test": "npm run test:browser",
     "test:browser": "playwright test",
     "test:all": "node tests/smoke-suite.js && node tests/match-simulation.spec.js",
-    "test:match-sim:quick": "UNDERCARD_MATCH_SIMULATION_COUNT=200 node tests/match-simulation.spec.js"
+    "test:match-sim:quick": "UNDERCARD_MATCH_SIMULATION_COUNT=200 node tests/match-simulation.spec.js",
+    "test:proportion-sweep": "node tests/deck-proportion-sweep.js",
+    "test:proportion-sweep:quick": "UNDERCARD_SWEEP_MATCHES=200 node tests/deck-proportion-sweep.js"
   },
   "repository": {
     "type": "git",

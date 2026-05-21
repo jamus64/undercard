@@ -29,7 +29,7 @@ Rare (★): up to 2 copies
 Special (❋): up to 2 copies
 
 Pinfall Deck
-Starts with 21 Fail cards and 2 Kickout cards (~75% chance the first pin attempt succeeds before any deck changes; see Pinfall draw rules).
+Starts with 3 Fail cards and 7 Kickout cards (~0.83% chance the first pin attempt succeeds before damage adds Fails; see Pinfall draw rules).
 Fail or Kickout cards added throughout match
 
 Hand

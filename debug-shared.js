@@ -13,11 +13,11 @@
     maxSequenceSlots: 3,
     damagePerFail: 10,
     pinDrawCount: 3,
-    startingPinFails: 21,
-    startingPinKickouts: 2
+    startingPinFails: 3,
+    startingPinKickouts: 7
   });
-  const LEGACY_STARTING_PIN_FAILS = 3;
-  const LEGACY_STARTING_PIN_KICKOUTS = 7;
+  const LEGACY_STARTING_PIN_FAILS = 21;
+  const LEGACY_STARTING_PIN_KICKOUTS = 2;
   const RARITY_LIMIT_DEFAULTS = Object.freeze({
     common: 4,
     uncommon: 3,

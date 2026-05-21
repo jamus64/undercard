@@ -1,34 +1,56 @@
 [
   {
     "name": "Joey 'Haddock Hands' Briggs",
-    "category": "Brawler"
+    "category": "Brawler",
+    "deckPreset": "stone_cold_brawler",
+    "archetypeName": "Stone Cold (Brawler)"
   },
   {
     "name": "Benji 'Bonje' Fellows",
-    "category": "Technical"
+    "category": "Technical",
+    "deckPreset": "bret_hart_technical",
+    "archetypeName": "Bret Hart (Technical)"
   },
   {
     "name": "Jamie 'Peter Peter' Wyatt",
-    "category": "High-Flyer"
+    "category": "High-Flyer",
+    "deckPreset": "rey_mysterio_high_flyer",
+    "archetypeName": "Rey Mysterio (High-Flyer)"
   },
   {
     "name": "Martha \"Ham Girl\" Wardle",
-    "category": "Power"
+    "category": "Power",
+    "deckPreset": "vader_power",
+    "archetypeName": "Vader (Power)"
   },
   {
     "name": "Alex \"Scourge of BBQs\" Horsefield",
-    "category": "Heel"
+    "category": "Heel",
+    "deckPreset": "ric_flair_heel",
+    "archetypeName": "Ric Flair (Heel)"
   },
   {
     "name": "Jack \"Punctuality\" Procter",
-    "category": "Technical"
+    "category": "Technical",
+    "deckPreset": "daniel_bryan_technical",
+    "archetypeName": "Daniel Bryan (Technical)"
   },
   {
     "name": "Louise \"Soul Sister\" Bellamy",
-    "category": "Heel"
+    "category": "Heel",
+    "deckPreset": "roddy_piper_heel",
+    "archetypeName": "Roddy Piper (Heel)"
   },
   {
     "name": "Thom \"Thibbers\" Ibbers",
-    "category": "Striker"
+    "category": "Striker",
+    "deckPreset": "bob_orton_striker",
+    "archetypeName": "Bob Orton (Striker)"
+  },
+  {
+    "name": "JJ 'Big Boonz' Copley",
+    "category": "Brawler",
+    "deckPreset": "stone_cold_brawler",
+    "archetypeName": "Big Boonz (Brawler)"
   }
 ]

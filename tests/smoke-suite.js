@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const Engine = require("../game-engine");
 const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
+const deckPresets = require("../data/deck-presets.json");
 const wrestlers = require("../data/wrestlers.json");
 
 /** Stable seed so CI is reproducible; picks a matchup other than hardcoding wrestlers[0] vs wrestlers[1]. */
@@ -43,12 +44,20 @@ function simulateSingleMatch(cardLookup) {
     random,
     player: {
       name: player.name,
-      maneuverDeck: Engine.buildDeckForWrestler(player, cardLookup, deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        player,
+        cardLookup,
+        Engine.resolveDeckRecipe(player, deckRecipe, deckPresets)
+      ),
       shuffleManeuverDeck: true
     },
     enemy: {
       name: enemy.name,
-      maneuverDeck: Engine.buildDeckForWrestler(enemy, cardLookup, deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        enemy,
+        cardLookup,
+        Engine.resolveDeckRecipe(enemy, deckRecipe, deckPresets)
+      ),
       shuffleManeuverDeck: true
     }
   });
@@ -112,7 +121,11 @@ function main() {
     assert.ok(wrestler.name, "Wrestler must have a name");
     assert.ok(wrestler.category, `Wrestler ${wrestler.name} must have a category`);
 
-    const deck = Engine.buildDeckForWrestler(wrestler, cardLookup, deckRecipe);
+    const deck = Engine.buildDeckForWrestler(
+      wrestler,
+      cardLookup,
+      Engine.resolveDeckRecipe(wrestler, deckRecipe, deckPresets)
+    );
     assert.equal(deck.length, 50, `Deck for ${wrestler.name} must have 50 cards`);
 
     const byType = {};

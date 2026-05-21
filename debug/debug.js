@@ -5,9 +5,12 @@ if (!Engine || !Shared) {
   throw new Error("UnderCard debug dependencies failed to load.");
 }
 
+const RARITY_LIMITS = { common: 4, uncommon: 3, rare: 2, special: 2 };
+
 const DATA_FILES = {
   cardPool: "../data/card-pool.json",
   deckRecipe: "../data/deck-recipe.json",
+  deckPresets: "../data/deck-presets.json",
   wrestlers: "../data/wrestlers.json"
 };
 
@@ -15,6 +18,7 @@ const gameData = {
   cardPool: [],
   cardLookup: {},
   deckRecipe: [],
+  deckPresets: {},
   wrestlers: [],
   cardLibrary: [],
   cardOptionCache: new Map()
@@ -122,6 +126,11 @@ async function loadGameData() {
       }
 
       const data = await response.json();
+      if (key === "deckPresets") {
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+          throw new Error(`${path} must be a JSON object of named deck recipes.`);
+        }
+      }
       return [key, data];
     })
   );
@@ -131,6 +140,38 @@ async function loadGameData() {
   });
 
   gameData.cardLookup = Object.fromEntries(gameData.cardPool.map((card) => [card.id, card]));
+}
+
+function validateManeuverRecipe(recipe, label) {
+  const size = recipe.reduce((sum, entry) => sum + Number(entry.count || 0), 0);
+  if (size !== 50) {
+    throw new Error(`${label} must total 50 cards. Found ${size}.`);
+  }
+
+  recipe.forEach((entry) => {
+    if (entry.cardId) {
+      const card = gameData.cardLookup[entry.cardId];
+      if (!card) {
+        throw new Error(`${label} references unknown card id "${entry.cardId}".`);
+      }
+      if (entry.count > RARITY_LIMITS[card.rarity]) {
+        throw new Error(`${label} exceeds ${card.name}'s copy limit.`);
+      }
+      return;
+    }
+
+    if (entry.type) {
+      if (!Engine.OFFENSIVE_TYPES.has(entry.type) || entry.type === "pin") {
+        throw new Error(`${label} type "${entry.type}" is not supported.`);
+      }
+      if (!Number.isInteger(entry.count) || entry.count < 0) {
+        throw new Error(`${label} type "${entry.type}" has invalid count.`);
+      }
+      return;
+    }
+
+    throw new Error(`${label} entries must include cardId or type.`);
+  });
 }
 
 function validateGameData() {
@@ -146,13 +187,22 @@ function validateGameData() {
     throw new Error("Wrestler data is empty.");
   }
 
-  const baseDeckSize = gameData.deckRecipe.reduce((sum, entry) => sum + Number(entry.count || 0), 0);
-  if (baseDeckSize !== 50) {
-    throw new Error(`Expected a 50-card base recipe. Found ${baseDeckSize}.`);
-  }
+  validateManeuverRecipe(gameData.deckRecipe, "Base deck recipe");
+
+  Object.entries(gameData.deckPresets || {}).forEach(([presetId, recipe]) => {
+    if (!Array.isArray(recipe)) {
+      throw new Error(`Deck preset "${presetId}" must be an array.`);
+    }
+    validateManeuverRecipe(recipe, `Deck preset "${presetId}"`);
+  });
 
   gameData.wrestlers.forEach((wrestler) => {
-    Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, gameData.deckRecipe);
+    if (wrestler.deckPreset && !gameData.deckPresets[wrestler.deckPreset]) {
+      throw new Error(`Wrestler "${wrestler.name}" references unknown deckPreset "${wrestler.deckPreset}".`);
+    }
+
+    const recipe = Engine.resolveDeckRecipe(wrestler, gameData.deckRecipe, gameData.deckPresets);
+    Engine.buildDeckForWrestler(wrestler, gameData.cardLookup, recipe);
   });
 }
 
@@ -244,12 +294,20 @@ function createMatchFromSettings(settings) {
     initiativeWinner: settings.initiativeWinner || undefined,
     player: {
       name: matchup.player.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.player, gameData.cardLookup, gameData.deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        matchup.player,
+        gameData.cardLookup,
+        Engine.resolveDeckRecipe(matchup.player, gameData.deckRecipe, gameData.deckPresets)
+      ),
       shuffleManeuverDeck: settings.shuffleManeuverDeck
     },
     enemy: {
       name: matchup.enemy.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.enemy, gameData.cardLookup, gameData.deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        matchup.enemy,
+        gameData.cardLookup,
+        Engine.resolveDeckRecipe(matchup.enemy, gameData.deckRecipe, gameData.deckPresets)
+      ),
       shuffleManeuverDeck: settings.shuffleManeuverDeck
     }
   });
@@ -281,7 +339,10 @@ function pickEnemyTemplate(playerTemplate, enemyTemplateName) {
 function cloneWrestler(wrestler) {
   return {
     name: wrestler.name,
-    category: wrestler.category
+    category: wrestler.category,
+    deckPreset: wrestler.deckPreset,
+    deckRecipe: wrestler.deckRecipe,
+    archetypeName: wrestler.archetypeName
   };
 }
 

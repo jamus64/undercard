@@ -12,11 +12,13 @@
   const PIN_DRAW_COUNT = 3;
   // Default deck tuned so P(all PIN_DRAW_COUNT draws are Fail before any Kickout) ≈ 75%
   // at match start: product_{i=0}^{2} (F-i)/(N-i) with F=21, N=23 → ~75.1%.
-  const STARTING_PIN_FAILS = 21;
-  const STARTING_PIN_KICKOUTS = 2;
-  /** Saved sessions / debug settings may still request the old starter deck; remap so defaults stay in sync. */
-  const LEGACY_STARTING_PIN_FAILS = 3;
-  const LEGACY_STARTING_PIN_KICKOUTS = 7;
+  // Pinfall deck starts low-Fail / high-Kickout so the first pin attempt is rare
+  // (~0.83% at 3F/7K with PIN_DRAW_COUNT=3). Damage thresholds add Fails over time.
+  const STARTING_PIN_FAILS = 3;
+  const STARTING_PIN_KICKOUTS = 7;
+  /** Earlier builds tried a 21F/2K starter; remap saved sessions so defaults stay in sync. */
+  const LEGACY_STARTING_PIN_FAILS = 21;
+  const LEGACY_STARTING_PIN_KICKOUTS = 2;
   const COIN_SIDES = ["Heads", "Tails"];
 
   const OFFENSIVE_TYPES = new Set(["attack", "taunt", "pin"]);
@@ -2765,6 +2767,22 @@
     };
   }
 
+  function resolveDeckRecipe(wrestler, defaultRecipe, presetLookup) {
+    const presets =
+      presetLookup && typeof presetLookup === "object" && !Array.isArray(presetLookup) ? presetLookup : null;
+
+    if (Array.isArray(wrestler?.deckRecipe) && wrestler.deckRecipe.length > 0) {
+      return wrestler.deckRecipe;
+    }
+
+    const key = wrestler?.deckPreset;
+    if (key && presets && Array.isArray(presets[key])) {
+      return presets[key];
+    }
+
+    return defaultRecipe;
+  }
+
   function buildDeckForWrestler(wrestler, cardLookup, deckRecipe) {
     const deck = [];
     const cardList = Object.values(cardLookup || {});
@@ -3017,6 +3035,7 @@
     },
     addPinfallCards,
     buildDeckForWrestler,
+    resolveDeckRecipe,
     callDefenceCoin,
     chooseAiDefence,
     chooseAiOffence,

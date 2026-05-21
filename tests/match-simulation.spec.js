@@ -9,6 +9,7 @@ try {
 const Engine = require("../game-engine");
 const cardPool = require("../data/card-pool.json");
 const deckRecipe = require("../data/deck-recipe.json");
+const deckPresets = require("../data/deck-presets.json");
 const wrestlers = require("../data/wrestlers.json");
 
 // Playwright always uses DEFAULT_MATCH_SIMULATION_COUNT (edit here). We do not read
@@ -49,7 +50,13 @@ function makeRandomSource(seed) {
 }
 
 function cloneWrestler(wrestler) {
-  return { name: wrestler.name, category: wrestler.category };
+  return {
+    name: wrestler.name,
+    category: wrestler.category,
+    deckPreset: wrestler.deckPreset,
+    deckRecipe: wrestler.deckRecipe,
+    archetypeName: wrestler.archetypeName
+  };
 }
 
 /** Every ordered pair (player role, opponent role) appears equally over seeds 0 .. n*(n-1)-1. */
@@ -104,12 +111,20 @@ function runSingleMatch(seed, cardLookup) {
     random,
     player: {
       name: matchup.player.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.player, cardLookup, deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        matchup.player,
+        cardLookup,
+        Engine.resolveDeckRecipe(matchup.player, deckRecipe, deckPresets)
+      ),
       shuffleManeuverDeck: true
     },
     enemy: {
       name: matchup.enemy.name,
-      maneuverDeck: Engine.buildDeckForWrestler(matchup.enemy, cardLookup, deckRecipe),
+      maneuverDeck: Engine.buildDeckForWrestler(
+        matchup.enemy,
+        cardLookup,
+        Engine.resolveDeckRecipe(matchup.enemy, deckRecipe, deckPresets)
+      ),
       shuffleManeuverDeck: true
     }
   });
